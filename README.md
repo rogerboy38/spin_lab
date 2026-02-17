@@ -235,7 +235,14 @@ bench --site your.site console
 ```
 
 ---
+Quick Start Guide (add to README)
+Would you like me to commit these files to your repo one by one now, or would you prefer to copy-paste them yourself?
 
+The setup is ready - once these files are in place, you can start the environment with:
+
+bash
+docker-compose up -d
+And access Frappe at http://localhost:8000 with credentials Administrator / admin.
 ## Educational Disclaimer
 
 This software is an educational research tool for studying probability,
