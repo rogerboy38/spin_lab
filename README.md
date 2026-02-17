@@ -33,7 +33,49 @@ exclusively for research and education.
 | Temperature / top-k | Volatility profile of the theme |
 | Sequence of tokens | Sequence of spin outcomes |
 | Perplexity / loss | Deviation of empirical vs theoretical RTP |
-| Training data | Simulated spin history (millions of samples) |
+| Training data | Simulated spin history (millions of 
+
+### Next-Token Probability "Heat" Identification
+
+Both LLMs and Spin Lab express **next-event likelihood** through probability distributions.
+In Spin Lab, we make this explicit using a **heat-based color scale** inspired by
+roulette "hot/cold number" tracking, but grounded in true mathematical probability:
+
+| Probability Range | Heat Label | Color | LLM Analogy | Spin Lab Example |
+|---|---|---|---|---|
+| 0 - 0.001 (0.1%) | **Frozen** | White / Ice blue | Extremely rare tokens (typos, obscure words) | Triple 777 jackpot |
+| 0.001 - 0.01 (0.1-1%) | **Cold** | Blue | Low-probability tokens | Triple stars, triple BARs |
+| 0.01 - 0.05 (1-5%) | **Cool** | Light blue / Cyan | Below-average likelihood | Double symbols, high mixed wins |
+| 0.05 - 0.20 (5-20%) | **Warm** | Yellow / Green | Moderate probability | Single cherry, any small fruit win |
+| 0.20 - 0.50 (20-50%) | **Hot** | Orange / Red | High-likelihood tokens | No-win outcome (in some configs) |
+| 0.50+ (>50%) | **Max / Burning** | Dark red / Black | Near-certain next token | No-win (in high house-edge configs) |
+
+**Key insight**: In a language model, the "temperature" parameter controls sampling behavior,
+but does NOT change the underlying probabilities. Similarly, in Spin Lab:
+- The heat color shows the **true designed probability** for each event.
+- Changing the stake or using a "naive" vs "rational" strategy does NOT change these probabilities.
+- "Hot" and "cold" are **descriptive labels for designed likelihoods**, not predictions based on past spins.
+
+### Empirical vs Theoretical Heat (Gambler's Fallacy Demo)
+
+Spin Lab also tracks **empirical frequency** in a sliding window and compares it to
+the theoretical probability:
+
+- **Empirical heat deviation**: "Currently above expectation" / "As expected" / "Currently below expectation"
+- This mimics the gambler's belief that roulette numbers become "due" or "hot" based on recent history.
+- **Critical educational point**: Empirical deviation does NOT change the next-spin probability.
+
+| Observation | Gambler's Interpretation | Mathematical Reality | LLM Parallel |
+|---|---|---|---|
+| Triple 7s appeared 3× in 500 spins (expected: 0.05) | "It's hot! Bet on it!" | Probability unchanged; variance is normal | Past tokens don't change next-token distribution (in a stateless model) |
+| No jackpot in 10,000 spins (expected: 10) | "It's due! Bet big now!" | Still the same low probability per spin | Rare token not appearing doesn't make it more likely next |
+| Cherry wins 30% of recent spins (expected: 10%) | "Cherries are hot!" | Finite-sample noise; true p unchanged | High-freq token in sample doesn't mean higher true p |
+
+This dual-heat system (true probability heat + empirical deviation) lets users explore:
+- How well finite samples converge to the designed distribution (Law of Large Numbers).
+- Why "hot" and "cold" streaks feel significant but are just variance.
+- The exact parallel to LLM behavior: next-token probabilities are fixed by the model,
+  and sampling history doesn't feed back into those probabilities (unless the model is stateful/adaptive).samples) |
 
 ---
 
