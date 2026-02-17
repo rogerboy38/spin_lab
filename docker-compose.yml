@@ -1,0 +1,205 @@
+version: '3.8'
+
+services:
+  # MariaDB Database
+  mariadb:
+    image: mariadb:10.6
+    container_name: spin_lab_mariadb
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: frappe
+      MYSQL_USER: frappe
+      MYSQL_PASSWORD: frappe
+    volumes:
+      - mariadb_data:/var/lib/mysql
+      - ./docker/mariadb.cnf:/etc/mysql/conf.d/frappe.cnf
+    networks:
+      - spin_lab_network
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          memory: 512M
+
+  # Redis Cache
+  redis-cache:
+    image: redis:7-alpine
+    container_name: spin_lab_redis_cache
+    restart: unless-stopped
+    networks:
+      - spin_lab_network
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+
+  # Redis Queue
+  redis-queue:
+    image: redis:7-alpine
+    container_name: spin_lab_redis_queue
+    restart: unless-stopped
+    networks:
+      - spin_lab_network
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+
+  # Redis SocketIO
+  redis-socketio:
+    image: redis:7-alpine
+    container_name: spin_lab_redis_socketio
+    restart: unless-stopped
+    networks:
+      - spin_lab_network
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+
+  # Frappe Bench Container
+  frappe:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: spin_lab_frappe
+    restart: unless-stopped
+    ports:
+      - "8000:8000"  # Frappe web
+      - "9000:9000"  # SocketIO
+    volumes:
+      - ./:/workspace/development/frappe-bench/apps/slot_lab
+      - frappe_sites:/workspace/development/frappe-bench/sites
+      - frappe_logs:/workspace/development/frappe-bench/logs
+    environment:
+      - MARIADB_HOST=mariadb
+      - REDIS_CACHE=redis-cache:6379
+      - REDIS_QUEUE=redis-queue:6379
+      - REDIS_SOCKETIO=redis-socketio:6379
+      - SITE_NAME=spin-lab.local
+      - ADMIN_PASSWORD=admin
+    depends_on:
+      - mariadb
+      - redis-cache
+      - redis-queue
+      - redis-socketio
+    networks:
+      - spin_lab_network
+    stdin_open: true
+    tty: true
+    deploy:
+      resources:
+        limits:
+          cpus: '4'
+          memory: 8G
+        reservations:
+          cpus: '2'
+          memory: 2G
+
+  # Frappe Worker (Long running tasks for simulations)
+  worker-long:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: spin_lab_worker_long
+    restart: unless-stopped
+    command: bench worker --queue long
+    volumes:
+      - ./:/workspace/development/frappe-bench/apps/slot_lab
+      - frappe_sites:/workspace/development/frappe-bench/sites
+      - frappe_logs:/workspace/development/frappe-bench/logs
+    environment:
+      - MARIADB_HOST=mariadb
+      - REDIS_CACHE=redis-cache:6379
+      - REDIS_QUEUE=redis-queue:6379
+      - REDIS_SOCKETIO=redis-socketio:6379
+    depends_on:
+      - mariadb
+      - redis-cache
+      - redis-queue
+      - frappe
+    networks:
+      - spin_lab_network
+    deploy:
+      resources:
+        limits:
+          cpus: '4'
+          memory: 6G
+        reservations:
+          cpus: '1'
+          memory: 1G
+
+  # Frappe Worker (Short tasks)
+  worker-short:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: spin_lab_worker_short
+    restart: unless-stopped
+    command: bench worker --queue short
+    volumes:
+      - ./:/workspace/development/frappe-bench/apps/slot_lab
+      - frappe_sites:/workspace/development/frappe-bench/sites
+      - frappe_logs:/workspace/development/frappe-bench/logs
+    environment:
+      - MARIADB_HOST=mariadb
+      - REDIS_CACHE=redis-cache:6379
+      - REDIS_QUEUE=redis-queue:6379
+      - REDIS_SOCKETIO=redis-socketio:6379
+    depends_on:
+      - mariadb
+      - redis-cache
+      - redis-queue
+      - frappe
+    networks:
+      - spin_lab_network
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+
+  # Frappe Scheduler
+  scheduler:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: spin_lab_scheduler
+    restart: unless-stopped
+    command: bench schedule
+    volumes:
+      - ./:/workspace/development/frappe-bench/apps/slot_lab
+      - frappe_sites:/workspace/development/frappe-bench/sites
+      - frappe_logs:/workspace/development/frappe-bench/logs
+    environment:
+      - MARIADB_HOST=mariadb
+      - REDIS_CACHE=redis-cache:6379
+      - REDIS_QUEUE=redis-queue:6379
+      - REDIS_SOCKETIO=redis-socketio:6379
+    depends_on:
+      - mariadb
+      - redis-cache
+      - redis-queue
+      - frappe
+    networks:
+      - spin_lab_network
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+
+volumes:
+  mariadb_data:
+  frappe_sites:
+  frappe_logs:
+
+networks:
+  spin_lab_network:
+    driver: bridge
