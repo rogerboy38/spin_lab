@@ -1,0 +1,14 @@
+{
+ "doctype": "DocType", "name": "Video Pay Rule", "module": "Spin Lab",
+ "istable": 1, "engine": "InnoDB",
+ "field_order": ["symbol", "pay_3", "pay_4", "pay_5", "pay_6"],
+ "fields": [
+  {"fieldname": "symbol", "fieldtype": "Data", "label": "Symbol", "reqd": 1, "in_list_view": 1},
+  {"fieldname": "pay_3", "fieldtype": "Float", "label": "3 of a kind", "in_list_view": 1, "non_negative": 1},
+  {"fieldname": "pay_4", "fieldtype": "Float", "label": "4 of a kind", "in_list_view": 1, "non_negative": 1},
+  {"fieldname": "pay_5", "fieldtype": "Float", "label": "5 of a kind", "in_list_view": 1, "non_negative": 1},
+  {"fieldname": "pay_6", "fieldtype": "Float", "label": "6 of a kind", "in_list_view": 1, "non_negative": 1}
+ ],
+ "permissions": [], "owner": "Administrator",
+ "modified": "2026-06-12 00:00:00.000000", "sort_field": "modified", "sort_order": "DESC"
+}

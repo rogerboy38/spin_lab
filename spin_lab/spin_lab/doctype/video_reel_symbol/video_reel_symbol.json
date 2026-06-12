@@ -1,0 +1,12 @@
+{
+ "doctype": "DocType", "name": "Video Reel Symbol", "module": "Spin Lab",
+ "istable": 1, "engine": "InnoDB",
+ "field_order": ["reel", "symbol", "count"],
+ "fields": [
+  {"fieldname": "reel", "fieldtype": "Int", "label": "Reel (1-6)", "reqd": 1, "in_list_view": 1},
+  {"fieldname": "symbol", "fieldtype": "Data", "label": "Symbol", "reqd": 1, "in_list_view": 1},
+  {"fieldname": "count", "fieldtype": "Int", "label": "Count on strip", "reqd": 1, "in_list_view": 1, "non_negative": 1}
+ ],
+ "permissions": [], "owner": "Administrator",
+ "modified": "2026-06-12 00:00:00.000000", "sort_field": "modified", "sort_order": "DESC"
+}

@@ -150,3 +150,12 @@ class TestSpin(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestThemeFromConfig(unittest.TestCase):
+    def test_config_round_trip_matches_builtin(self):
+        from spin_lab.engine.video_slot import deep_sea_config, theme_from_config
+        t = theme_from_config(deep_sea_config())
+        a, b = analytic_rtp(t), analytic_rtp(DEEP_SEA)
+        self.assertAlmostEqual(a["total_rtp"], b["total_rtp"], places=12)
+        self.assertEqual(t.strips, DEEP_SEA.strips)

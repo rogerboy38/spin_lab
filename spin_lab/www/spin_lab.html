@@ -77,8 +77,9 @@
   </div>
 
   <div class="sl-card">
-    <h3>🌊 Deep Sea 4096 — 6×4 Video Slot <small style="color:#888">(4096 ways to win)</small></h3>
+    <h3>🌊 6×4 Video Slot <small style="color:#888">(4096 ways to win)</small></h3>
     <div class="sl-row">
+      <select id="vs-theme" class="form-control" style="width:auto"></select>
       <select id="vs-profile" class="form-control" style="width:auto">
         <option value="fair">fair · RTP 100%</option>
         <option value="casino_edge">casino_edge · RTP 95%</option>
@@ -384,8 +385,19 @@
     frappe.call({ method: "spin_lab.api.slot_engine." + method, args, callback: (r) => cb(r.message) });
   }
 
+  function currentTheme() {
+    return $("vs-theme").value || "Deep Sea 4096";
+  }
+
+  function loadThemes() {
+    vcall("video_themes", {}, (names) => {
+      $("vs-theme").innerHTML = names.map((n) => `<option>${n}</option>`).join("");
+      loadRtp();
+    });
+  }
+
   function loadRtp() {
-    vcall("video_info", { profile: $("vs-profile").value }, (info) => {
+    vcall("video_info", { theme: currentTheme(), profile: $("vs-profile").value }, (info) => {
       const r = info.rtp;
       $("vs-rtp").innerHTML =
         `<tr><th>RTP decomposition (analytic)</th><th>target ${(r.target*100).toFixed(0)}%</th></tr>
@@ -402,6 +414,7 @@
     vsBusy = true;
     $("vs-fs").textContent = "";
     vcall("video_spin", {
+      theme: currentTheme(),
       stake: parseFloat($("vs-stake").value),
       profile: $("vs-profile").value,
     }, (res) => {
@@ -430,8 +443,9 @@
   });
 
   $("vs-profile").addEventListener("change", loadRtp);
+  $("vs-theme").addEventListener("change", () => { drawGrid(null); loadRtp(); });
   drawGrid(null);
-  loadRtp();
+  loadThemes();
 })();
 </script>
 

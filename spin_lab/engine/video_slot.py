@@ -369,3 +369,44 @@ def video_simulate(
         "final_bankroll": round(bankroll, 4),
         "bankroll_path": path[:: max(1, n_spins // 1000)],
     }
+
+
+def theme_from_config(cfg: dict) -> VideoTheme:
+    """Build a VideoTheme from a plain dict (used by the Video Slot Theme
+    DocType so themes can be defined in the Frappe desk).
+
+    cfg = {
+      "name": str,
+      "wild": str, "scatter": str, "fs_multiplier": float,
+      "reel_counts": [ {symbol: count, ...} x REELS ],
+      "pay_table": {symbol: {3: pay, 4: pay, 5: pay, 6: pay}},
+      "scatter_pays": {3: x, ...}, "free_spins": {3: n, ...},
+    }
+    """
+    if len(cfg["reel_counts"]) != REELS:
+        raise ValueError(f"need symbol counts for exactly {REELS} reels")
+    return VideoTheme(
+        name=cfg["name"],
+        strips=tuple(_build_strip(c) for c in cfg["reel_counts"]),
+        pay_table={s: {int(k): float(v) for k, v in p.items()}
+                   for s, p in cfg["pay_table"].items()},
+        wild=cfg["wild"],
+        scatter=cfg["scatter"],
+        scatter_pays={int(k): float(v) for k, v in cfg["scatter_pays"].items()},
+        free_spins={int(k): int(v) for k, v in cfg["free_spins"].items()},
+        fs_multiplier=float(cfg.get("fs_multiplier", 2.0)),
+    )
+
+
+def deep_sea_config() -> dict:
+    """The built-in theme as a plain config dict (used for DB seeding)."""
+    return {
+        "name": DEEP_SEA.name,
+        "wild": DEEP_SEA.wild,
+        "scatter": DEEP_SEA.scatter,
+        "fs_multiplier": DEEP_SEA.fs_multiplier,
+        "reel_counts": [dict(c) for c in _REEL_COUNTS],
+        "pay_table": {s: dict(p) for s, p in DEEP_SEA.pay_table.items()},
+        "scatter_pays": dict(DEEP_SEA.scatter_pays),
+        "free_spins": dict(DEEP_SEA.free_spins),
+    }

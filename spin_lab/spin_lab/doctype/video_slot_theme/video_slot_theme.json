@@ -1,0 +1,22 @@
+{
+ "doctype": "DocType", "name": "Video Slot Theme", "module": "Spin Lab",
+ "engine": "InnoDB", "autoname": "field:theme_name",
+ "field_order": ["theme_name", "wild_symbol", "scatter_symbol", "fs_multiplier",
+                 "reel_symbols", "pay_rules", "scatter_tiers", "rtp_summary"],
+ "fields": [
+  {"fieldname": "theme_name", "fieldtype": "Data", "label": "Theme Name", "reqd": 1, "unique": 1},
+  {"fieldname": "wild_symbol", "fieldtype": "Data", "label": "Wild Symbol", "reqd": 1, "default": "WILD"},
+  {"fieldname": "scatter_symbol", "fieldtype": "Data", "label": "Scatter Symbol", "reqd": 1, "default": "SCATTER"},
+  {"fieldname": "fs_multiplier", "fieldtype": "Float", "label": "Free-Spin Win Multiplier", "default": "2.0", "non_negative": 1},
+  {"fieldname": "reel_symbols", "fieldtype": "Table", "label": "Reel Symbol Counts (6 reels)", "options": "Video Reel Symbol", "reqd": 1},
+  {"fieldname": "pay_rules", "fieldtype": "Table", "label": "Pay Table (per way)", "options": "Video Pay Rule", "reqd": 1},
+  {"fieldname": "scatter_tiers", "fieldtype": "Table", "label": "Scatter Tiers", "options": "Video Scatter Tier", "reqd": 1},
+  {"fieldname": "rtp_summary", "fieldtype": "Small Text", "label": "RTP Summary (computed)", "read_only": 1}
+ ],
+ "permissions": [
+  {"role": "System Manager", "read": 1, "write": 1, "create": 1, "delete": 1},
+  {"role": "All", "read": 1}
+ ],
+ "owner": "Administrator",
+ "modified": "2026-06-12 00:00:00.000000", "sort_field": "modified", "sort_order": "DESC"
+}

@@ -11,6 +11,9 @@ app_license = "MIT"
 # Seed default themes on install
 after_install = "spin_lab.install.after_install"
 
+# Re-seed (idempotent) so new built-in themes appear after updates
+after_migrate = ["spin_lab.install.after_migrate"]
+
 # Scheduled cleanup of old simulation spins (keeps DB small)
 scheduler_events = {
     "daily": [

@@ -1,0 +1,12 @@
+{
+ "doctype": "DocType", "name": "Video Scatter Tier", "module": "Spin Lab",
+ "istable": 1, "engine": "InnoDB",
+ "field_order": ["scatters", "pay_multiplier", "free_spins"],
+ "fields": [
+  {"fieldname": "scatters", "fieldtype": "Int", "label": "Scatter count", "reqd": 1, "in_list_view": 1},
+  {"fieldname": "pay_multiplier", "fieldtype": "Float", "label": "Pay (x total bet)", "in_list_view": 1, "non_negative": 1},
+  {"fieldname": "free_spins", "fieldtype": "Int", "label": "Free spins awarded", "in_list_view": 1, "non_negative": 1}
+ ],
+ "permissions": [], "owner": "Administrator",
+ "modified": "2026-06-12 00:00:00.000000", "sort_field": "modified", "sort_order": "DESC"
+}

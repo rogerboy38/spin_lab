@@ -71,9 +71,29 @@ def get_event_heat(theme: str, event: str | None = None,
 from spin_lab.engine import video_slot as video_engine
 
 
+def _resolve_any_video_theme(theme: str):
+    """Code-defined themes first, then Video Slot Theme records from the DB."""
+    try:
+        return video_engine.resolve_video_theme(theme)
+    except ValueError:
+        if frappe.db.exists("Video Slot Theme", theme):
+            return frappe.get_doc("Video Slot Theme", theme).as_engine_theme()
+        raise
+
+
+@frappe.whitelist()
+def video_themes():
+    """All available video themes (code-defined + DB records)."""
+    names = list(video_engine.VIDEO_THEMES)
+    if frappe.db.exists("DocType", "Video Slot Theme"):
+        names += [d.name for d in frappe.get_all("Video Slot Theme")
+                  if d.name not in names]
+    return names
+
+
 @frappe.whitelist()
 def video_spin(theme: str = "Deep Sea 4096", stake: float = 1.0, profile: str = "fair"):
-    result = video_engine.video_spin(theme, float(stake), profile)
+    result = video_engine.video_spin(_resolve_any_video_theme(theme), float(stake), profile)
     frappe.publish_realtime("spin_lab_video_spin", result, user=frappe.session.user)
     return result
 
@@ -83,7 +103,7 @@ def video_simulate(theme: str = "Deep Sea 4096", n_spins: int = 10000,
                    profile: str = "fair", stake: float = 1.0, seed: int | None = None):
     n_spins = min(int(n_spins), 200_000)  # free-spin resolution is heavier per spin
     summary = video_engine.video_simulate(
-        theme, n_spins, profile, float(stake),
+        _resolve_any_video_theme(theme), n_spins, profile, float(stake),
         int(seed) if seed is not None else None)
     run = frappe.new_doc("Slot Simulation Run")
     run.theme = None  # video themes are code-defined, not Slot Theme records
@@ -99,7 +119,7 @@ def video_simulate(theme: str = "Deep Sea 4096", n_spins: int = 10000,
 @frappe.whitelist()
 def video_info(theme: str = "Deep Sea 4096", profile: str = "fair"):
     """Theme metadata + exact analytic RTP decomposition for the UI."""
-    t = video_engine.resolve_video_theme(theme)
+    t = _resolve_any_video_theme(theme)
     r = video_engine.analytic_rtp(t)
     scale = video_engine.video_profile_scale(t, profile)
     return {
