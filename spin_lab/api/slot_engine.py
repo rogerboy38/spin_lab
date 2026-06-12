@@ -47,7 +47,7 @@ def simulate(theme: str, n_spins: int = 10000, profile: str = "fair",
     return summary
 
 
-@frappe.whitelist()
+@frappe.whitelist(allow_guest=True)
 def compare_strategies(theme: str, n_spins: int = 10000, profile: str = "fair",
                        seed: int | None = None):
     n_spins = min(int(n_spins), MAX_SIM_SPINS)
@@ -56,7 +56,7 @@ def compare_strategies(theme: str, n_spins: int = 10000, profile: str = "fair",
     )
 
 
-@frappe.whitelist()
+@frappe.whitelist(allow_guest=True)
 def get_event_heat(theme: str, event: str | None = None,
                    hits: int = 0, window: int = 0):
     if event:
@@ -81,7 +81,7 @@ def _resolve_any_video_theme(theme: str):
         raise
 
 
-@frappe.whitelist()
+@frappe.whitelist(allow_guest=True)
 def video_themes():
     """All available video themes (code-defined + DB records)."""
     names = list(video_engine.VIDEO_THEMES)
@@ -116,7 +116,7 @@ def video_simulate(theme: str = "Deep Sea 4096", n_spins: int = 10000,
     return summary
 
 
-@frappe.whitelist()
+@frappe.whitelist(allow_guest=True)
 def video_info(theme: str = "Deep Sea 4096", profile: str = "fair"):
     """Theme metadata + exact analytic RTP decomposition for the UI."""
     t = _resolve_any_video_theme(theme)
