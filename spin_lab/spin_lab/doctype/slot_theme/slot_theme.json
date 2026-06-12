@@ -1,0 +1,24 @@
+{
+ "doctype": "DocType",
+ "name": "Slot Theme",
+ "module": "Spin Lab",
+ "engine": "InnoDB",
+ "autoname": "field:theme_name",
+ "field_order": ["theme_name", "volatility", "description", "symbols", "pay_rules", "theoretical_rtp"],
+ "fields": [
+  {"fieldname": "theme_name", "fieldtype": "Data", "label": "Theme Name", "reqd": 1, "unique": 1},
+  {"fieldname": "volatility", "fieldtype": "Select", "label": "Volatility", "options": "Low\nMedium\nHigh\nExtreme", "reqd": 1},
+  {"fieldname": "description", "fieldtype": "Small Text", "label": "Description"},
+  {"fieldname": "symbols", "fieldtype": "Table", "label": "Symbols", "options": "Slot Symbol", "reqd": 1},
+  {"fieldname": "pay_rules", "fieldtype": "Table", "label": "Pay Rules", "options": "Slot Pay Rule", "reqd": 1},
+  {"fieldname": "theoretical_rtp", "fieldtype": "Float", "label": "Theoretical Base RTP", "read_only": 1, "precision": "6"}
+ ],
+ "permissions": [
+  {"role": "System Manager", "read": 1, "write": 1, "create": 1, "delete": 1},
+  {"role": "All", "read": 1}
+ ],
+ "owner": "Administrator",
+ "modified": "2026-06-12 00:00:00.000000",
+ "sort_field": "modified",
+ "sort_order": "DESC"
+}

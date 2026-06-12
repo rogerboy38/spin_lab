@@ -1,0 +1,17 @@
+{
+ "doctype": "DocType",
+ "name": "Slot Pay Rule",
+ "module": "Spin Lab",
+ "istable": 1,
+ "engine": "InnoDB",
+ "field_order": ["combination", "payout_multiplier"],
+ "fields": [
+  {"fieldname": "combination", "fieldtype": "Data", "label": "Combination (A|B|C, * = wildcard)", "reqd": 1, "in_list_view": 1},
+  {"fieldname": "payout_multiplier", "fieldtype": "Float", "label": "Payout Multiplier", "reqd": 1, "in_list_view": 1, "non_negative": 1}
+ ],
+ "permissions": [],
+ "owner": "Administrator",
+ "modified": "2026-06-12 00:00:00.000000",
+ "sort_field": "modified",
+ "sort_order": "DESC"
+}

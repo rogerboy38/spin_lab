@@ -14,12 +14,17 @@ echo "MariaDB is ready!"
 if [ ! -d "sites/${SITE_NAME}" ]; then
     echo "Creating new site: ${SITE_NAME}"
     bench new-site "${SITE_NAME}" \
-        --mariadb-root-password root \
+        --db-root-password root \
         --admin-password "${ADMIN_PASSWORD}" \
-        --no-mariadb-socket
-    
-    echo "Installing slot_lab app..."
-    bench --site "${SITE_NAME}" install-app slot_lab
+        --mariadb-user-host-login-scope='%'
+
+    echo "Installing spin_lab app..."
+    # app source is volume-mounted into apps/spin_lab
+    if ! grep -q '^spin_lab$' sites/apps.txt 2>/dev/null; then
+        ./env/bin/pip install -e apps/spin_lab
+        echo "spin_lab" >> sites/apps.txt
+    fi
+    bench --site "${SITE_NAME}" install-app spin_lab
     
     echo "Site created and app installed successfully!"
 fi

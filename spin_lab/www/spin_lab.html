@@ -1,0 +1,48 @@
+{% extends "templates/web.html" %}
+
+{% block title %}Spin Lab{% endblock %}
+
+{% block page_content %}
+<div style="max-width:720px;margin:2rem auto;text-align:center;font-family:system-ui">
+  <h1>Spin Lab</h1>
+  <p>Educational probability simulator — virtual credits only, no real money.</p>
+
+  <div id="reels" style="font-size:3rem;letter-spacing:1rem;margin:1.5rem">— — —</div>
+
+  <select id="theme">
+    <option>Classic Fruits</option>
+    <option>Lucky Sevens</option>
+    <option>Stars &amp; Bars</option>
+  </select>
+  <select id="profile">
+    <option value="fair">fair (RTP 100%)</option>
+    <option value="casino_edge">casino_edge (RTP 95%)</option>
+    <option value="player_edge">player_edge (RTP 105%)</option>
+  </select>
+  <button id="spin" class="btn btn-primary">Spin</button>
+
+  <pre id="out" style="text-align:left;background:#f6f8fa;padding:1rem;margin-top:1.5rem"></pre>
+  <p style="color:#888;font-size:.85rem">
+    Every spin is an independent sample. Past results never change the next-spin
+    probabilities — that belief is the gambler's fallacy this lab exists to study.
+  </p>
+</div>
+
+<script>
+document.getElementById("spin").addEventListener("click", () => {
+  frappe.call({
+    method: "spin_lab.api.slot_engine.spin_once",
+    args: {
+      theme: document.getElementById("theme").value,
+      profile: document.getElementById("profile").value,
+      stake_points: 1.0,
+    },
+    callback: (r) => {
+      const res = r.message;
+      document.getElementById("reels").textContent = res.reels.join("  ");
+      document.getElementById("out").textContent = JSON.stringify(res, null, 2);
+    },
+  });
+});
+</script>
+{% endblock %}
