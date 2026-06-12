@@ -33,7 +33,7 @@ exclusively for research and education.
 | Temperature / top-k | Volatility profile of the theme |
 | Sequence of tokens | Sequence of spin outcomes |
 | Perplexity / loss | Deviation of empirical vs theoretical RTP |
-| Training data | Simulated spin history (millions of 
+| Training data | Simulated spin history (millions of samples) |
 
 ### Next-Token Probability "Heat" Identification
 
@@ -75,7 +75,7 @@ This dual-heat system (true probability heat + empirical deviation) lets users e
 - How well finite samples converge to the designed distribution (Law of Large Numbers).
 - Why "hot" and "cold" streaks feel significant but are just variance.
 - The exact parallel to LLM behavior: next-token probabilities are fixed by the model,
-  and sampling history doesn't feed back into those probabilities (unless the model is stateful/adaptive).samples) |
+  and sampling history doesn't feed back into those probabilities (unless the model is stateful/adaptive).
 
 ---
 
@@ -230,19 +230,23 @@ bench migrate
 # Run a test spin from bench console
 bench --site your.site console
 >>> from spin_lab.api.slot_engine import spin_once
->>> result = spin_once(theme="Classic Fruits", stake_points=1.0)
->>> print(result)
+>>> spin_once(theme="Classic Fruits", stake_points=1.0, profile="fair")
+
+# Or use the pure engine without a site (also how unit tests run):
+python -m unittest discover -s spin_lab/tests -t .
 ```
 
+### Docker (one command)
+
+```bash
+docker compose up -d
+```
+
+Then open http://localhost:8000 (Administrator / admin) and visit `/spin-lab`
+for the interactive lab page.
+
 ---
-Quick Start Guide (add to README)
-Would you like me to commit these files to your repo one by one now, or would you prefer to copy-paste them yourself?
 
-The setup is ready - once these files are in place, you can start the environment with:
-
-bash
-docker-compose up -d
-And access Frappe at http://localhost:8000 with credentials Administrator / admin.
 ## Educational Disclaimer
 
 This software is an educational research tool for studying probability,

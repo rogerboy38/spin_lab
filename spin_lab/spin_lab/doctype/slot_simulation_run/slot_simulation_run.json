@@ -1,0 +1,23 @@
+{
+ "doctype": "DocType",
+ "name": "Slot Simulation Run",
+ "module": "Spin Lab",
+ "engine": "InnoDB",
+ "autoname": "format:SIM-{####}",
+ "field_order": ["theme", "profile", "n_spins", "seed", "empirical_rtp", "results_json"],
+ "fields": [
+  {"fieldname": "theme", "fieldtype": "Link", "label": "Theme", "options": "Slot Theme", "reqd": 1},
+  {"fieldname": "profile", "fieldtype": "Select", "label": "Scoring Profile", "options": "casino_edge\nfair\nplayer_edge", "default": "fair"},
+  {"fieldname": "n_spins", "fieldtype": "Int", "label": "Number of Spins", "non_negative": 1},
+  {"fieldname": "seed", "fieldtype": "Data", "label": "RNG Seed"},
+  {"fieldname": "empirical_rtp", "fieldtype": "Float", "label": "Empirical RTP", "precision": "6"},
+  {"fieldname": "results_json", "fieldtype": "Long Text", "label": "Results (JSON)"}
+ ],
+ "permissions": [
+  {"role": "System Manager", "read": 1, "write": 1, "create": 1, "delete": 1}
+ ],
+ "owner": "Administrator",
+ "modified": "2026-06-12 00:00:00.000000",
+ "sort_field": "modified",
+ "sort_order": "DESC"
+}

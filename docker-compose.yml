@@ -1,4 +1,3 @@
-version: '3.8'
 
 services:
   # MariaDB Database
@@ -74,7 +73,7 @@ services:
       - "8000:8000"  # Frappe web
       - "9000:9000"  # SocketIO
     volumes:
-      - ./:/workspace/development/frappe-bench/apps/slot_lab
+      - ./:/workspace/development/frappe-bench/apps/spin_lab
       - frappe_sites:/workspace/development/frappe-bench/sites
       - frappe_logs:/workspace/development/frappe-bench/logs
     environment:
@@ -111,7 +110,7 @@ services:
     restart: unless-stopped
     command: bench worker --queue long
     volumes:
-      - ./:/workspace/development/frappe-bench/apps/slot_lab
+      - ./:/workspace/development/frappe-bench/apps/spin_lab
       - frappe_sites:/workspace/development/frappe-bench/sites
       - frappe_logs:/workspace/development/frappe-bench/logs
     environment:
@@ -144,7 +143,7 @@ services:
     restart: unless-stopped
     command: bench worker --queue short
     volumes:
-      - ./:/workspace/development/frappe-bench/apps/slot_lab
+      - ./:/workspace/development/frappe-bench/apps/spin_lab
       - frappe_sites:/workspace/development/frappe-bench/sites
       - frappe_logs:/workspace/development/frappe-bench/logs
     environment:
@@ -174,7 +173,7 @@ services:
     restart: unless-stopped
     command: bench schedule
     volumes:
-      - ./:/workspace/development/frappe-bench/apps/slot_lab
+      - ./:/workspace/development/frappe-bench/apps/spin_lab
       - frappe_sites:/workspace/development/frappe-bench/sites
       - frappe_logs:/workspace/development/frappe-bench/logs
     environment:
