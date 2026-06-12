@@ -3,46 +3,269 @@
 {% block title %}Spin Lab{% endblock %}
 
 {% block page_content %}
-<div style="max-width:720px;margin:2rem auto;text-align:center;font-family:system-ui">
-  <h1>Spin Lab</h1>
-  <p>Educational probability simulator — virtual credits only, no real money.</p>
+<style>
+  .sl-wrap{max-width:960px;margin:1rem auto;font-family:system-ui;color:#1a1a2e}
+  .sl-row{display:flex;gap:1rem;flex-wrap:wrap;align-items:center;justify-content:center;margin:.75rem 0}
+  .sl-card{background:#fff;border:1px solid #e3e6ea;border-radius:12px;padding:1rem;margin:1rem 0;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+  .sl-stat{font-variant-numeric:tabular-nums;font-weight:600}
+  .sl-heat-chip{display:inline-block;width:14px;height:14px;border-radius:3px;vertical-align:middle;margin-right:6px;border:1px solid rgba(0,0,0,.15)}
+  .sl-note{color:#777;font-size:.85rem;text-align:center;margin-top:.75rem}
+  .sl-table{width:100%;border-collapse:collapse;font-size:.9rem}
+  .sl-table th,.sl-table td{padding:.4rem .6rem;border-bottom:1px solid #eef0f3;text-align:left}
+  canvas{display:block;margin:0 auto;max-width:100%}
+  .sl-btn{cursor:pointer}
+  h1,h3{text-align:center}
+</style>
 
-  <div id="reels" style="font-size:3rem;letter-spacing:1rem;margin:1.5rem">— — —</div>
+<div class="sl-wrap">
+  <h1>🎰 Spin Lab</h1>
+  <p style="text-align:center">Educational probability simulator — virtual credits only, no real money.</p>
 
-  <select id="theme">
-    <option>Classic Fruits</option>
-    <option>Lucky Sevens</option>
-    <option>Stars &amp; Bars</option>
-  </select>
-  <select id="profile">
-    <option value="fair">fair (RTP 100%)</option>
-    <option value="casino_edge">casino_edge (RTP 95%)</option>
-    <option value="player_edge">player_edge (RTP 105%)</option>
-  </select>
-  <button id="spin" class="btn btn-primary">Spin</button>
+  <div class="sl-card">
+    <div class="sl-row">
+      <select id="sl-theme" class="form-control" style="width:auto">
+        <option>Classic Fruits</option>
+        <option>Lucky Sevens</option>
+        <option>Stars &amp; Bars</option>
+      </select>
+      <select id="sl-profile" class="form-control" style="width:auto">
+        <option value="fair">fair · RTP 100%</option>
+        <option value="casino_edge">casino_edge · RTP 95%</option>
+        <option value="player_edge">player_edge · RTP 105%</option>
+      </select>
+      <select id="sl-stake" class="form-control" style="width:auto">
+        <option value="0.01">stake 0.01</option>
+        <option value="1" selected>stake 1</option>
+        <option value="10">stake 10</option>
+      </select>
+      <button id="sl-spin" class="btn btn-primary sl-btn">SPIN</button>
+    </div>
 
-  <pre id="out" style="text-align:left;background:#f6f8fa;padding:1rem;margin-top:1.5rem"></pre>
-  <p style="color:#888;font-size:.85rem">
-    Every spin is an independent sample. Past results never change the next-spin
-    probabilities — that belief is the gambler's fallacy this lab exists to study.
-  </p>
+    <canvas id="sl-reels" width="560" height="170"></canvas>
+
+    <div class="sl-row">
+      <span>Last: <span id="sl-last" class="sl-stat">—</span></span>
+      <span>Payout: <span id="sl-payout" class="sl-stat">—</span></span>
+      <span>Bankroll: <span id="sl-bankroll" class="sl-stat">0.00</span></span>
+      <span>Spins: <span id="sl-count" class="sl-stat">0</span></span>
+    </div>
+  </div>
+
+  <div class="sl-card">
+    <h3>Next-Event Heat Bands <small style="color:#888">(true designed probabilities)</small></h3>
+    <table class="sl-table" id="sl-heat"><thead>
+      <tr><th>Event</th><th>True p</th><th>Band</th><th>Seen here</th><th>Deviation (this session)</th></tr>
+    </thead><tbody></tbody></table>
+    <p class="sl-note">Heat reflects <b>designed</b> probability. Deviation describes the past —
+      it never changes the next spin. Believing otherwise is the gambler's fallacy.</p>
+  </div>
+
+  <div class="sl-card">
+    <h3>Bulk Simulation</h3>
+    <div class="sl-row">
+      <select id="sl-nspins" class="form-control" style="width:auto">
+        <option value="1000">1,000 spins</option>
+        <option value="10000" selected>10,000 spins</option>
+        <option value="100000">100,000 spins</option>
+      </select>
+      <button id="sl-simulate" class="btn btn-secondary sl-btn">Run simulation</button>
+      <button id="sl-compare" class="btn btn-secondary sl-btn">Compare strategies</button>
+      <span id="sl-sim-stats" class="sl-stat"></span>
+    </div>
+    <canvas id="sl-chart" width="900" height="300"></canvas>
+    <div id="sl-legend" class="sl-row"></div>
+  </div>
+
+  <p class="sl-note">If you or someone you know has a gambling problem, call the
+    National Problem Gambling Helpline: 1-800-522-4700.</p>
 </div>
 
 <script>
-document.getElementById("spin").addEventListener("click", () => {
-  frappe.call({
-    method: "spin_lab.api.slot_engine.spin_once",
-    args: {
-      theme: document.getElementById("theme").value,
-      profile: document.getElementById("profile").value,
-      stake_points: 1.0,
-    },
-    callback: (r) => {
-      const res = r.message;
-      document.getElementById("reels").textContent = res.reels.join("  ");
-      document.getElementById("out").textContent = JSON.stringify(res, null, 2);
-    },
+(function () {
+  const ICONS = {
+    CHERRY:"🍒", LEMON:"🍋", PLUM:"🟣", ORANGE:"🍊", GRAPE:"🍇",
+    BLANK:"·", BELL:"🔔", BAR:"BAR", SEVEN:"7️⃣", DIAMOND:"💎",
+    STAR:"⭐", BAR1:"BAR", BAR2:"2BAR", BAR3:"3BAR",
+  };
+  const THEME_SYMBOLS = {
+    "Classic Fruits": ["CHERRY","LEMON","PLUM","ORANGE","GRAPE"],
+    "Lucky Sevens":   ["BLANK","BELL","BAR","SEVEN","DIAMOND"],
+    "Stars & Bars":   ["BLANK","STAR","BAR1","BAR2","BAR3"],
+  };
+  const $ = (id) => document.getElementById(id);
+  const reels = $("sl-reels").getContext("2d");
+  const chart = $("sl-chart").getContext("2d");
+
+  let bankroll = 0, spins = 0, spinning = false;
+  let sessionHits = {}, sessionWindow = 0;
+
+  function drawReels(symbols, highlight) {
+    const c = reels, W = 560, H = 170;
+    c.clearRect(0, 0, W, H);
+    for (let i = 0; i < 3; i++) {
+      const x = 20 + i * 180;
+      c.fillStyle = highlight ? "#fff7e0" : "#f7f8fa";
+      c.strokeStyle = "#d8dce2";
+      c.lineWidth = 2;
+      c.beginPath();
+      if (c.roundRect) c.roundRect(x, 15, 160, 140, 12); else c.rect(x, 15, 160, 140);
+      c.fill(); c.stroke();
+      const s = symbols[i] || "—";
+      const icon = ICONS[s] ?? s;
+      c.font = icon.length > 2 ? "bold 34px system-ui" : "64px system-ui";
+      c.fillStyle = "#1a1a2e";
+      c.textAlign = "center"; c.textBaseline = "middle";
+      c.fillText(icon, x + 80, 88);
+    }
+  }
+
+  function animateSpin(finalReels, done) {
+    const theme = $("sl-theme").value;
+    const pool = THEME_SYMBOLS[theme];
+    const stops = [600, 1000, 1400]; // staggered stop per reel (ms)
+    const start = performance.now();
+    const current = [null, null, null];
+    (function frame(now) {
+      const t = now - start;
+      let allDone = true;
+      for (let i = 0; i < 3; i++) {
+        if (t < stops[i]) {
+          current[i] = pool[Math.floor(Math.random() * pool.length)];
+          allDone = false;
+        } else {
+          current[i] = finalReels[i];
+        }
+      }
+      drawReels(current, allDone);
+      if (!allDone) requestAnimationFrame(frame); else done();
+    })(start);
+  }
+
+  function call(method, args, cb) {
+    frappe.call({ method: "spin_lab.api.slot_engine." + method, args, callback: (r) => cb(r.message) });
+  }
+
+  $("sl-spin").addEventListener("click", () => {
+    if (spinning) return;
+    spinning = true;
+    const theme = $("sl-theme").value;
+    call("spin_once", {
+      theme, profile: $("sl-profile").value,
+      stake_points: parseFloat($("sl-stake").value),
+    }, (res) => {
+      animateSpin(res.reels, () => {
+        bankroll += res.net; spins += 1;
+        sessionWindow += 1;
+        const key = res.reels.join("|");
+        sessionHits[key] = (sessionHits[key] || 0) + 1;
+        $("sl-last").textContent = res.reels.join(" ");
+        $("sl-payout").textContent = res.payout.toFixed(2);
+        $("sl-bankroll").textContent = bankroll.toFixed(2);
+        $("sl-bankroll").style.color = bankroll < 0 ? "#c0392b" : "#1e8449";
+        $("sl-count").textContent = spins;
+        spinning = false;
+        loadHeat();
+      });
+    });
   });
-});
+
+  function matchesCombo(hitKey, combo) {
+    const h = hitKey.split("|"), c = combo.split("|");
+    const lit = c.find((p) => p !== "*");
+    return h.every((s, i) => (c[i] === "*" ? s !== lit : s === c[i]));
+  }
+
+  function loadHeat() {
+    const theme = $("sl-theme").value;
+    call("get_event_heat", { theme }, (events) => {
+      const tb = $("sl-heat").querySelector("tbody");
+      tb.innerHTML = "";
+      events.sort((a, b) => a.true_p - b.true_p).forEach((e) => {
+        let hits = 0;
+        for (const k in sessionHits) if (matchesCombo(k, e.event)) hits += sessionHits[k];
+        const emp = sessionWindow ? (hits / sessionWindow).toFixed(4) : "—";
+        tb.insertAdjacentHTML("beforeend",
+          `<tr><td>${e.event}</td><td>${e.true_p}</td>
+           <td><span class="sl-heat-chip" style="background:${e.band_color}"></span>${e.band_label}</td>
+           <td>${hits} / ${sessionWindow} (${emp})</td>
+           <td>${sessionWindow >= 30 ? deviation(e.true_p, hits) : "need ≥30 spins"}</td></tr>`);
+      });
+    });
+  }
+
+  function deviation(p, hits) {
+    const n = sessionWindow;
+    const sd = Math.sqrt(p * (1 - p) / n);
+    const z = (hits / n - p) / sd;
+    if (z > 2) return "above expectation (looks hot) — next-spin p unchanged";
+    if (z < -2) return "below expectation (looks cold) — next-spin p unchanged";
+    return "as expected";
+  }
+
+  const COLORS = { naive: "#c0392b", advised: "#1e8449", rational: "#2f7ed8", single: "#2f7ed8" };
+
+  function drawPaths(paths, labels) {
+    const W = 900, H = 300, pad = 45;
+    chart.clearRect(0, 0, W, H);
+    let lo = 0, hi = 0;
+    paths.forEach((p) => p.forEach((v) => { lo = Math.min(lo, v); hi = Math.max(hi, v); }));
+    if (hi === lo) hi = lo + 1;
+    const X = (i, n) => pad + (i / (n - 1)) * (W - pad - 10);
+    const Y = (v) => H - pad - ((v - lo) / (hi - lo)) * (H - pad - 15);
+    chart.strokeStyle = "#ccc"; chart.lineWidth = 1;
+    chart.strokeRect(pad, 10, W - pad - 10, H - pad - 10 + 5);
+    chart.strokeStyle = "#999"; chart.setLineDash([4, 4]);
+    chart.beginPath(); chart.moveTo(pad, Y(0)); chart.lineTo(W - 10, Y(0)); chart.stroke();
+    chart.setLineDash([]);
+    chart.fillStyle = "#666"; chart.font = "12px system-ui"; chart.textAlign = "left";
+    chart.fillText(hi.toFixed(0), 4, Y(hi) + 4);
+    chart.fillText(lo.toFixed(0), 4, Y(lo) + 4);
+    chart.fillText("0", 4, Y(0) + 4);
+    paths.forEach((p, k) => {
+      chart.strokeStyle = COLORS[labels[k]] || "#555";
+      chart.lineWidth = 2;
+      chart.beginPath();
+      p.forEach((v, i) => i ? chart.lineTo(X(i, p.length), Y(v)) : chart.moveTo(X(i, p.length), Y(v)));
+      chart.stroke();
+    });
+    $("sl-legend").innerHTML = labels.map((l) =>
+      `<span><span class="sl-heat-chip" style="background:${COLORS[l] || "#555"}"></span>${l}</span>`).join("");
+  }
+
+  $("sl-simulate").addEventListener("click", () => {
+    $("sl-sim-stats").textContent = "running…";
+    call("simulate", {
+      theme: $("sl-theme").value, profile: $("sl-profile").value,
+      n_spins: parseInt($("sl-nspins").value),
+    }, (res) => {
+      $("sl-sim-stats").textContent =
+        `empirical RTP ${res.empirical_rtp} (target ${res.target_rtp}) · hit rate ${res.hit_rate} · final ${res.final_bankroll}`;
+      drawPaths([res.bankroll_path], ["single"]);
+    });
+  });
+
+  $("sl-compare").addEventListener("click", () => {
+    $("sl-sim-stats").textContent = "running…";
+    call("compare_strategies", {
+      theme: $("sl-theme").value, profile: $("sl-profile").value,
+      n_spins: parseInt($("sl-nspins").value),
+    }, (res) => {
+      const names = Object.keys(res.strategies);
+      $("sl-sim-stats").textContent = names.map((n) =>
+        `${n}: ${res.strategies[n].final_bankroll}`).join(" · ") +
+        " — identical outcomes, different stakes";
+      drawPaths(names.map((n) => res.strategies[n].bankroll_path), names);
+    });
+  });
+
+  $("sl-theme").addEventListener("change", () => {
+    sessionHits = {}; sessionWindow = 0;
+    drawReels(["—", "—", "—"]);
+    loadHeat();
+  });
+
+  drawReels(["—", "—", "—"]);
+  loadHeat();
+})();
 </script>
 {% endblock %}
