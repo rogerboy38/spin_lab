@@ -76,6 +76,40 @@
     <div id="sl-legend" class="sl-row"></div>
   </div>
 
+  <div class="sl-card">
+    <h3>🌊 Deep Sea 4096 — 6×4 Video Slot <small style="color:#888">(4096 ways to win)</small></h3>
+    <div class="sl-row">
+      <select id="vs-profile" class="form-control" style="width:auto">
+        <option value="fair">fair · RTP 100%</option>
+        <option value="casino_edge">casino_edge · RTP 95%</option>
+        <option value="player_edge">player_edge · RTP 105%</option>
+      </select>
+      <select id="vs-stake" class="form-control" style="width:auto">
+        <option value="0.1">stake 0.1</option>
+        <option value="1" selected>stake 1</option>
+        <option value="10">stake 10</option>
+      </select>
+      <button id="vs-spin" class="btn btn-primary sl-btn">SPIN 6×4</button>
+      <span id="vs-fs" class="sl-stat" style="color:#b8860b"></span>
+    </div>
+
+    <canvas id="vs-grid" width="900" height="420"></canvas>
+
+    <div class="sl-row">
+      <span>Win: <span id="vs-win" class="sl-stat">—</span></span>
+      <span>Bankroll: <span id="vs-bankroll" class="sl-stat">0.00</span></span>
+      <span>Spins: <span id="vs-count" class="sl-stat">0</span></span>
+      <span id="vs-detail" style="color:#666;font-size:.85rem"></span>
+    </div>
+
+    <div class="sl-row" style="justify-content:center">
+      <table class="sl-table" style="max-width:560px"><tbody id="vs-rtp"></tbody></table>
+    </div>
+    <p class="sl-note">Wins need matching symbols on adjacent reels from the left, any row.
+      Ways = product of per-reel match counts. 🃏 WILD substitutes; 🦪 PEARL pays anywhere
+      and 3+ trigger free spins (all wins ×2, retriggers possible).</p>
+  </div>
+
   <p class="sl-note">If you or someone you know has a gambling problem, call the
     National Problem Gambling Helpline: 1-800-522-4700.</p>
 </div>
@@ -181,6 +215,7 @@
       const tb = $("sl-heat").querySelector("tbody");
       tb.innerHTML = "";
       events.sort((a, b) => a.true_p - b.true_p).forEach((e) => {
+        // recompute deviation against THIS session's spins
         let hits = 0;
         for (const k in sessionHits) if (matchesCombo(k, e.event)) hits += sessionHits[k];
         const emp = sessionWindow ? (hits / sessionWindow).toFixed(4) : "—";
@@ -212,6 +247,7 @@
     if (hi === lo) hi = lo + 1;
     const X = (i, n) => pad + (i / (n - 1)) * (W - pad - 10);
     const Y = (v) => H - pad - ((v - lo) / (hi - lo)) * (H - pad - 15);
+    // axes + zero line
     chart.strokeStyle = "#ccc"; chart.lineWidth = 1;
     chart.strokeRect(pad, 10, W - pad - 10, H - pad - 10 + 5);
     chart.strokeStyle = "#999"; chart.setLineDash([4, 4]);
@@ -268,4 +304,135 @@
   loadHeat();
 })();
 </script>
+<script>
+(function () {
+  const VICONS = {
+    TEN:"10", JACK:"J", QUEEN:"Q", KING:"K", ACE:"A",
+    CRAB:"🦀", OCTOPUS:"🐙", SHARK:"🦈", KRAKEN:"🐉",
+    WILD:"🃏", PEARL:"🦪",
+  };
+  const PREMIUM = { CRAB:1, OCTOPUS:1, SHARK:1, KRAKEN:1, WILD:1, PEARL:1 };
+  const $ = (id) => document.getElementById(id);
+  const ctx = $("vs-grid").getContext("2d");
+  const REELS = 6, VROWS = 4, CW = 140, CH = 96, OX = 30, OY = 12;
+
+  let vsBankroll = 0, vsSpins = 0, vsBusy = false;
+
+  function cellColor(sym, winSet, r, p) {
+    if (winSet.has(r + "," + p)) return "#fff1c2";
+    return PREMIUM[sym] ? "#eef6ff" : "#f7f8fa";
+  }
+
+  function drawGrid(grid, winCells) {
+    const winSet = winCells || new Set();
+    ctx.clearRect(0, 0, 900, 420);
+    for (let r = 0; r < REELS; r++) {
+      for (let p = 0; p < VROWS; p++) {
+        const x = OX + r * CW, y = OY + p * CH;
+        const sym = grid ? grid[r][p] : null;
+        ctx.fillStyle = sym ? cellColor(sym, winSet, r, p) : "#f7f8fa";
+        ctx.strokeStyle = "#d8dce2"; ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        if (ctx.roundRect) ctx.roundRect(x, y, CW - 10, CH - 8, 8); else ctx.rect(x, y, CW - 10, CH - 8);
+        ctx.fill(); ctx.stroke();
+        if (sym) {
+          const icon = VICONS[sym] ?? sym;
+          ctx.font = icon.length > 2 ? "bold 22px system-ui"
+                   : /^[A-Z0-9]+$/.test(icon) ? "bold 34px Georgia" : "44px system-ui";
+          ctx.fillStyle = sym === "PEARL" ? "#b8860b" : sym === "WILD" ? "#7d3c98" : "#1a1a2e";
+          ctx.textAlign = "center"; ctx.textBaseline = "middle";
+          ctx.fillText(icon, x + (CW - 10) / 2, y + (CH - 8) / 2);
+        }
+      }
+    }
+  }
+
+  function winCellsOf(grid, wins) {
+    const set = new Set();
+    (wins || []).forEach((w) => {
+      for (let r = 0; r < w.count; r++)
+        grid[r].forEach((s, p) => {
+          if (s === w.symbol || s === "WILD") set.add(r + "," + p);
+        });
+    });
+    grid.forEach((reel, r) => reel.forEach((s, p) => { if (s === "PEARL") set.add(r + "," + p); }));
+    return set;
+  }
+
+  function animateVideo(finalGrid, done) {
+    const pool = Object.keys(VICONS);
+    const start = performance.now();
+    (function frame(now) {
+      const t = now - start;
+      let allDone = true;
+      const g = [];
+      for (let r = 0; r < REELS; r++) {
+        const stopAt = 400 + r * 180;
+        if (t < stopAt) {
+          allDone = false;
+          g.push(Array.from({length: VROWS}, () => pool[Math.floor(Math.random() * pool.length)]));
+        } else {
+          g.push(finalGrid[r]);
+        }
+      }
+      drawGrid(g);
+      if (!allDone) requestAnimationFrame(frame); else done();
+    })(start);
+  }
+
+  function vcall(method, args, cb) {
+    frappe.call({ method: "spin_lab.api.slot_engine." + method, args, callback: (r) => cb(r.message) });
+  }
+
+  function loadRtp() {
+    vcall("video_info", { profile: $("vs-profile").value }, (info) => {
+      const r = info.rtp;
+      $("vs-rtp").innerHTML =
+        `<tr><th>RTP decomposition (analytic)</th><th>target ${(r.target*100).toFixed(0)}%</th></tr>
+         <tr><td>Base game (4096 ways)</td><td>${(r.base_ways*100).toFixed(2)}%</td></tr>
+         <tr><td>Scatter pays</td><td>${(r.scatter*100).toFixed(2)}%</td></tr>
+         <tr><td>Free spins (×${info.fs_multiplier}, retriggers incl.)</td><td>${(r.free_spins*100).toFixed(2)}%</td></tr>
+         <tr><td>Free-spin trigger probability</td><td>1 in ${Math.round(1/r.p_free_spin_trigger)}</td></tr>
+         <tr><td>E[free spins per trigger]</td><td>${r.expected_free_spins_per_trigger}</td></tr>`;
+    });
+  }
+
+  $("vs-spin").addEventListener("click", () => {
+    if (vsBusy) return;
+    vsBusy = true;
+    $("vs-fs").textContent = "";
+    vcall("video_spin", {
+      stake: parseFloat($("vs-stake").value),
+      profile: $("vs-profile").value,
+    }, (res) => {
+      animateVideo(res.grid, () => {
+        drawGrid(res.grid, winCellsOf(res.grid, res.wins));
+        vsBankroll += res.net; vsSpins += 1;
+        $("vs-win").textContent = res.total_win.toFixed(2);
+        $("vs-win").style.color = res.total_win > 0 ? "#1e8449" : "#1a1a2e";
+        $("vs-bankroll").textContent = vsBankroll.toFixed(2);
+        $("vs-bankroll").style.color = vsBankroll < 0 ? "#c0392b" : "#1e8449";
+        $("vs-count").textContent = vsSpins;
+        const parts = (res.wins || []).map((w) =>
+          `${VICONS[w.symbol] ?? w.symbol}×${w.count} (${w.ways} ways)`);
+        if (res.scatters >= 3) parts.push(`🦪×${res.scatters} SCATTER`);
+        $("vs-detail").textContent = parts.join("  ·  ");
+        if (res.free_spins) {
+          const fs = res.free_spins;
+          $("vs-fs").textContent =
+            `🎁 FREE SPINS! ${fs.awarded} awarded, ${fs.played} played` +
+            (fs.retriggers ? ` (${fs.retriggers} retriggers)` : "") +
+            ` → won ${fs.total_win.toFixed(2)}`;
+        }
+        vsBusy = false;
+      });
+    });
+  });
+
+  $("vs-profile").addEventListener("change", loadRtp);
+  drawGrid(null);
+  loadRtp();
+})();
+</script>
+
 {% endblock %}

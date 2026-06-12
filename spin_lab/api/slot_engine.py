@@ -62,3 +62,64 @@ def get_event_heat(theme: str, event: str | None = None,
     if event:
         return heat_engine.event_heat(theme, event, int(hits), int(window))
     return heat_engine.theme_heat_map(theme)
+
+
+# --------------------------------------------------------------------------
+# Video slot (6x4, 4096 ways) endpoints
+# --------------------------------------------------------------------------
+
+from spin_lab.engine import video_slot as video_engine
+
+
+@frappe.whitelist()
+def video_spin(theme: str = "Deep Sea 4096", stake: float = 1.0, profile: str = "fair"):
+    result = video_engine.video_spin(theme, float(stake), profile)
+    frappe.publish_realtime("spin_lab_video_spin", result, user=frappe.session.user)
+    return result
+
+
+@frappe.whitelist()
+def video_simulate(theme: str = "Deep Sea 4096", n_spins: int = 10000,
+                   profile: str = "fair", stake: float = 1.0, seed: int | None = None):
+    n_spins = min(int(n_spins), 200_000)  # free-spin resolution is heavier per spin
+    summary = video_engine.video_simulate(
+        theme, n_spins, profile, float(stake),
+        int(seed) if seed is not None else None)
+    run = frappe.new_doc("Slot Simulation Run")
+    run.theme = None  # video themes are code-defined, not Slot Theme records
+    run.profile = profile
+    run.n_spins = n_spins
+    run.empirical_rtp = summary["empirical_rtp"]
+    run.results_json = json.dumps(summary)
+    run.flags.ignore_mandatory = True
+    run.insert(ignore_permissions=True)
+    return summary
+
+
+@frappe.whitelist()
+def video_info(theme: str = "Deep Sea 4096", profile: str = "fair"):
+    """Theme metadata + exact analytic RTP decomposition for the UI."""
+    t = video_engine.resolve_video_theme(theme)
+    r = video_engine.analytic_rtp(t)
+    scale = video_engine.video_profile_scale(t, profile)
+    return {
+        "name": t.name,
+        "reels": t.reels,
+        "rows": t.rows,
+        "total_ways": video_engine.TOTAL_WAYS,
+        "wild": t.wild,
+        "scatter": t.scatter,
+        "pay_table": t.pay_table,
+        "scatter_pays": t.scatter_pays,
+        "free_spins": t.free_spins,
+        "fs_multiplier": t.fs_multiplier,
+        "strip_lengths": [len(s) for s in t.strips],
+        "rtp": {
+            "target": video_engine.SCORING_PROFILES[profile],
+            "base_ways": round(r["base_ways_rtp"] * scale, 6),
+            "scatter": round(r["scatter_rtp"] * scale, 6),
+            "free_spins": round(r["free_spins_rtp"] * scale, 6),
+            "p_free_spin_trigger": round(r["p_free_spin_trigger"], 6),
+            "expected_free_spins_per_trigger": round(r["expected_free_spins_per_trigger"], 3),
+        },
+    }

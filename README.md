@@ -247,6 +247,28 @@ for the interactive lab page.
 
 ---
 
+## Deep Sea 4096 — Modern Video Slot Mode (v0.2)
+
+Beyond the classic 3-reel machine, Spin Lab includes a research-grade
+6-reel × 4-row video slot with **4096 ways to win** (4^6), built on the
+industry-standard model documented in the gambling-math literature
+(Harrigan & Dixon 2009 PAR-sheet analyses; Turner & Horbay 2004):
+
+- **Strip + window reels**: each reel is an ordered cyclic strip; the RNG
+  picks one stop uniformly; the window shows 4 consecutive symbols.
+- **Ways-to-win**: a symbol pays on adjacent reels from the left, any row;
+  ways = product of per-reel match counts; only the highest match pays.
+- **Wilds** substitute (absent from reel 1 by design), **scatters** pay
+  anywhere x total bet, 3+ trigger **free spins** (all wins x2) with
+  retriggers: E[spins] = n0 / (1 - R).
+- **Exact analytic RTP decomposition** (base + scatter + free spins),
+  verified against Monte-Carlo simulation in the test suite, with the same
+  casino_edge / fair / player_edge profiles scaled to exact targets.
+
+APIs: `video_spin`, `video_simulate`, `video_info`. UI: second panel on `/spin-lab`.
+
+---
+
 ## Educational Disclaimer
 
 This software is an educational research tool for studying probability,
