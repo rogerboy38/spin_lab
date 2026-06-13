@@ -71,6 +71,7 @@ def simulate(
     total_staked = 0.0
     total_paid = 0.0
     wins = 0
+    ldw = 0  # losses disguised as wins: 0 < payout < stake
     outcome_counts: dict[str, int] = {}
     bankroll_path: list[float] = []
     bankroll = 0.0
@@ -82,6 +83,8 @@ def simulate(
         total_paid += payout
         if payout > 0:
             wins += 1
+            if payout < stake_points:
+                ldw += 1
         key = "|".join(reels)
         outcome_counts[key] = outcome_counts.get(key, 0) + 1
         bankroll += payout - stake_points
@@ -97,6 +100,7 @@ def simulate(
         "total_paid": round(total_paid, 6),
         "empirical_rtp": round(total_paid / total_staked, 6) if total_staked else 0,
         "hit_rate": round(wins / n_spins, 6) if n_spins else 0,
+        "ldw_rate": round(ldw / n_spins, 6) if n_spins else 0,
         "final_bankroll": round(bankroll, 6),
         "outcome_counts": outcome_counts,
         # downsample path to <=1000 points for charting

@@ -49,6 +49,8 @@
       <span>Payout: <span id="sl-payout" class="sl-stat">—</span></span>
       <span>Bankroll: <span id="sl-bankroll" class="sl-stat">0.00</span></span>
       <span>Spins: <span id="sl-count" class="sl-stat">0</span></span>
+      <span title="Losses Disguised as Wins: payout > 0 but below the stake">
+        LDW: <span id="sl-ldw" class="sl-stat" style="color:#b06a00">0 (0%)</span></span>
     </div>
   </div>
 
@@ -101,6 +103,8 @@
       <span>Win: <span id="vs-win" class="sl-stat">—</span></span>
       <span>Bankroll: <span id="vs-bankroll" class="sl-stat">0.00</span></span>
       <span>Spins: <span id="vs-count" class="sl-stat">0</span></span>
+      <span title="Losses Disguised as Wins: total win > 0 but below the stake">
+        LDW: <span id="vs-ldw" class="sl-stat" style="color:#b06a00">0 (0%)</span></span>
       <span id="vs-detail" style="color:#666;font-size:.85rem"></span>
     </div>
 
@@ -185,7 +189,7 @@ window.SLAudio = (function () {
   const reels = $("sl-reels").getContext("2d");
   const chart = $("sl-chart").getContext("2d");
 
-  let bankroll = 0, spins = 0, spinning = false;
+  let bankroll = 0, spins = 0, spinning = false, ldw = 0;
   let sessionHits = {}, sessionWindow = 0;
 
   function drawReels(symbols, highlight, winLine) {
@@ -264,6 +268,8 @@ window.SLAudio = (function () {
           SLAudio.lose();
         }
         bankroll += res.net; spins += 1;
+        if (res.payout > 0 && res.payout < res.stake) ldw += 1;
+        $("sl-ldw").textContent = `${ldw} (${(100 * ldw / spins).toFixed(0)}%)`;
         sessionWindow += 1;
         const key = res.reels.join("|");
         sessionHits[key] = (sessionHits[key] || 0) + 1;
@@ -350,7 +356,8 @@ window.SLAudio = (function () {
       n_spins: parseInt($("sl-nspins").value),
     }, (res) => {
       $("sl-sim-stats").textContent =
-        `empirical RTP ${res.empirical_rtp} (target ${res.target_rtp}) · hit rate ${res.hit_rate} · final ${res.final_bankroll}`;
+        `empirical RTP ${res.empirical_rtp} (target ${res.target_rtp}) · hit rate ${res.hit_rate}` +
+        ` · LDW rate ${res.ldw_rate} · final ${res.final_bankroll}`;
       drawPaths([res.bankroll_path], ["single"]);
     });
   });
@@ -410,7 +417,7 @@ window.SLAudio = (function () {
   const ctx = $("vs-grid").getContext("2d");
   const REELS = 6, VROWS = 4, CW = 140, CH = 96, OX = 30, OY = 12;
 
-  let vsBankroll = 0, vsSpins = 0, vsBusy = false;
+  let vsBankroll = 0, vsSpins = 0, vsBusy = false, vsLdw = 0;
 
   function cellColor(sym, winSet, r, p) {
     if (winSet.has(r + "," + p)) return "#fff1c2";
@@ -535,6 +542,8 @@ window.SLAudio = (function () {
           $("vs-fs").textContent += `  📌 ${res.free_spins.sticky_wilds} sticky wild(s) locked`;
         }
         vsBankroll += res.net; vsSpins += 1;
+        if (res.total_win > 0 && res.total_win < res.stake) vsLdw += 1;
+        $("vs-ldw").textContent = `${vsLdw} (${(100 * vsLdw / vsSpins).toFixed(0)}%)`;
         $("vs-win").textContent = res.total_win.toFixed(2);
         $("vs-win").style.color = res.total_win > 0 ? "#1e8449" : "#1a1a2e";
         $("vs-bankroll").textContent = vsBankroll.toFixed(2);

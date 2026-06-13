@@ -579,7 +579,7 @@ def video_simulate(
     scale = video_profile_scale(t, profile)
 
     staked = paid = base_paid = fs_paid = scatter_paid = 0.0
-    hits = triggers = respin_events = 0
+    hits = triggers = respin_events = ldw = 0
     bankroll, path = 0.0, []
 
     for _ in range(n_spins):
@@ -594,6 +594,8 @@ def video_simulate(
             respin_events += 1
         if r["total_win"] > 0:
             hits += 1
+            if r["total_win"] < stake:
+                ldw += 1
         paid += r["total_win"]
         bankroll += r["total_win"] - stake
         path.append(round(bankroll, 4))
@@ -608,6 +610,7 @@ def video_simulate(
             "free_spins": round(fs_paid / staked, 6),
         },
         "hit_rate": round(hits / n_spins, 6),
+        "ldw_rate": round(ldw / n_spins, 6),
         "fs_trigger_rate": round(triggers / n_spins, 6),
         "respin_rate": round(respin_events / n_spins, 6),
         "final_bankroll": round(bankroll, 4),
