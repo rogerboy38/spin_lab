@@ -141,6 +141,10 @@ def video_info(theme: str = "Deep Sea 4096", profile: str = "fair"):
         "free_spins": t.free_spins,
         "fs_multiplier": t.fs_multiplier,
         "strip_lengths": [len(s) for s in t.strips],
+        "luck": {
+            "sigma_per_spin": round(video_engine.session_sigma(t, profile), 4),
+            "mu_per_spin": round(video_engine.SCORING_PROFILES[profile] - 1.0, 6),
+        },
         "rtp": {
             "target": video_engine.SCORING_PROFILES[profile],
             "base_ways": round(r["base_ways_rtp"] * scale, 6),
@@ -156,3 +160,13 @@ def video_info(theme: str = "Deep Sea 4096", profile: str = "fair"):
 def meter_analysis_api(profile: str = "fair", stake: float = 1.0):
     from spin_lab.api.progressive import meter_analysis
     return meter_analysis(profile, stake)
+
+
+@frappe.whitelist(allow_guest=True)
+def gamblers_ruin(theme: str = "Classic Fruits", bankroll: float = 50,
+                  goal: float = 100, profile: str = "casino_edge",
+                  stake: float = 1.0, sessions: int = 1500):
+    from spin_lab.engine.ruin import simulate_ruin
+    sessions = min(int(sessions), 4000)
+    return simulate_ruin(theme, float(bankroll), float(goal), profile,
+                         float(stake), sessions)

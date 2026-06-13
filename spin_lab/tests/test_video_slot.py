@@ -306,3 +306,34 @@ class TestProgressiveMath(unittest.TestCase):
             t = draw_mhb_trigger(5000, 10000, rng)
             self.assertTrue(5000 <= t <= 10000)
         self.assertEqual(mhb_expected_hit(5000, 10000), 7500.0)
+
+
+class TestGamblersRuin(unittest.TestCase):
+    def test_fair_formula(self):
+        from spin_lab.engine.ruin import fair_ruin_probability, biased_ruin_probability
+        self.assertAlmostEqual(fair_ruin_probability(10, 20), 0.5)
+        self.assertAlmostEqual(fair_ruin_probability(30, 100), 0.3)
+        # biased reduces to fair at p=0.5
+        self.assertAlmostEqual(biased_ruin_probability(10, 20, 0.5),
+                               fair_ruin_probability(10, 20), places=9)
+        # house edge (p<0.5) lowers goal probability
+        self.assertLess(biased_ruin_probability(10, 20, 0.45), 0.5)
+
+    def test_edge_orders_outcomes(self):
+        from spin_lab.engine.ruin import simulate_ruin
+        edge = simulate_ruin("Classic Fruits", 50, 100, "casino_edge",
+                             sessions=800, seed=3)
+        plus = simulate_ruin("Classic Fruits", 50, 100, "player_edge",
+                             sessions=800, seed=3)
+        # player edge must reach the goal more often than house edge
+        self.assertGreater(plus["p_reach_goal"], edge["p_reach_goal"])
+        # every session ends (no leftover probability mass beyond rounding)
+        for r in (edge, plus):
+            self.assertAlmostEqual(
+                r["p_reach_goal"] + r["p_ruin"] + r["p_timeout"], 1.0, places=2)
+
+    def test_ruin_certain_with_big_goal_small_bank(self):
+        from spin_lab.engine.ruin import simulate_ruin
+        r = simulate_ruin("Classic Fruits", 5, 500, "casino_edge",
+                          sessions=600, seed=1)
+        self.assertGreater(r["p_ruin"], 0.9)   # tiny bank, huge goal, edge -> doom

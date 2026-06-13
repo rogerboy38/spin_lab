@@ -185,6 +185,32 @@
       and 3+ trigger free spins (all wins ×2, retriggers possible).</p>
   </div>
 
+  <div class="sl-card">
+    <h3>⚰️ Gambler's Ruin <small style="color:#888">— how it actually ends</small></h3>
+    <div class="sl-row">
+      <label class="sl-stat" style="font-weight:400">bankroll
+        <input id="gr-bank" type="number" value="50" min="1" style="width:70px" class="form-control"></label>
+      <label class="sl-stat" style="font-weight:400">cash-out goal
+        <input id="gr-goal" type="number" value="100" min="2" style="width:80px" class="form-control"></label>
+      <select id="gr-profile" class="form-control" style="width:auto">
+        <option value="casino_edge">casino_edge · 95%</option>
+        <option value="fair">fair · 100%</option>
+        <option value="player_edge">player_edge · 105%</option>
+      </select>
+      <button id="gr-run" class="btn btn-primary sl-btn">Run 1,500 lives</button>
+      <span id="gr-stats" class="sl-stat"></span>
+    </div>
+    <canvas id="gr-chart" width="900" height="300"></canvas>
+    <div class="sl-row" style="justify-content:center">
+      <span><span class="sl-heat-chip" style="background:#1e8449"></span>cashed out</span>
+      <span><span class="sl-heat-chip" style="background:#c0392b"></span>went broke</span>
+      <span style="border-top:2px dashed #888;width:24px;display:inline-block"></span> goal &amp; bankroll lines
+    </div>
+    <p class="sl-note">Classic theorem: in a <b>fair</b> game your chance of reaching the goal before
+      ruin is exactly <b>bankroll ÷ goal</b>. Any house edge bends every path downward — and the
+      longer anyone plays, the closer ruin gets to certain. This is the math no strategy escapes.</p>
+  </div>
+
   <p class="sl-note">If you or someone you know has a gambling problem, call the
     National Problem Gambling Helpline: 1-800-522-4700.</p>
 </div>
@@ -469,6 +495,47 @@ window.SLAudio = (function () {
     sessionHits = {}; sessionWindow = 0;
     drawReels(["—", "—", "—"]);
     loadHeat();
+  });
+
+  // ── Gambler's Ruin ──
+  const grCtx = $("gr-chart").getContext("2d");
+  function drawRuin(res) {
+    const W = 900, H = 300, padL = 50, padR = 12, padT = 12, padB = 22;
+    const goal = res.goal, paths = res.sample_paths || [];
+    const maxLen = Math.max(2, ...paths.map((p) => p.path.length));
+    grCtx.clearRect(0, 0, W, H);
+    const X = (i, n) => padL + (i / Math.max(1, n - 1)) * (W - padL - padR);
+    const Y = (v) => H - padB - (Math.max(0, Math.min(goal, v)) / goal) * (H - padT - padB);
+    // goal + bankroll + zero reference lines
+    grCtx.strokeStyle = "#bbb"; grCtx.setLineDash([5, 4]); grCtx.lineWidth = 1;
+    [[goal, "goal " + goal], [res.bankroll, "start " + res.bankroll], [0, "0"]].forEach(([v, lbl]) => {
+      grCtx.beginPath(); grCtx.moveTo(padL, Y(v)); grCtx.lineTo(W - padR, Y(v)); grCtx.stroke();
+      grCtx.fillStyle = "#999"; grCtx.font = "11px system-ui"; grCtx.textAlign = "left";
+      grCtx.fillText(lbl, 4, Y(v) + 4);
+    });
+    grCtx.setLineDash([]);
+    paths.forEach((pp) => {
+      grCtx.strokeStyle = pp.outcome === "goal" ? "rgba(30,132,73,.7)"
+                        : pp.outcome === "bust" ? "rgba(192,57,43,.6)" : "rgba(150,150,150,.5)";
+      grCtx.lineWidth = 1.3; grCtx.beginPath();
+      pp.path.forEach((v, i) => i ? grCtx.lineTo(X(i, pp.path.length), Y(v))
+                                  : grCtx.moveTo(X(i, pp.path.length), Y(v)));
+      grCtx.stroke();
+    });
+  }
+  $("gr-run").addEventListener("click", () => {
+    $("gr-stats").textContent = "running 1,500 lives…";
+    frappe.call({ method: "spin_lab.api.slot_engine.gamblers_ruin",
+      args: { theme: $("sl-theme").value, bankroll: parseFloat($("gr-bank").value),
+              goal: parseFloat($("gr-goal").value), profile: $("gr-profile").value, sessions: 1500 },
+      callback: (r) => {
+        const d = r.message;
+        $("gr-stats").innerHTML =
+          `<span style="color:#1e8449">cash out ${(d.p_reach_goal*100).toFixed(1)}%</span> · ` +
+          `<span style="color:#c0392b">ruin ${(d.p_ruin*100).toFixed(1)}%</span> · ` +
+          `fair-game theory ${(d.fair_p_reach_goal*100).toFixed(1)}% · median ${d.median_spins} spins`;
+        drawRuin(d);
+      } });
   });
 
   drawReels(["—", "—", "—"]);
