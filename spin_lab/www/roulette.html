@@ -151,7 +151,7 @@
     document.querySelectorAll(".d-cr").forEach(function(b){b.onclick=function(){var u=b.dataset.u;acc("admin_credit",{user:u,amount:$("cr-"+btoa(u)).value}).then(function(){dlgLoad();afterDealer(u);});};});
     document.querySelectorAll(".d-st").forEach(function(b){b.onclick=function(){var u=b.dataset.u;acc("admin_set_balance",{user:u,amount:$("st-"+btoa(u)).value}).then(function(){dlgLoad();afterDealer(u);});};});
   }); }
-  function afterDealer(u){ if(u===me){ acc("whoami").then(function(w){ if(w&&w.balance!=null){bal=w.balance;setBal();} }); } }
+  function afterDealer(u){ acc("whoami").then(function(w){ if(w&&w.balance!=null){bal=w.balance;setBal();} }); }
   function openDealer(){ $("dlg-dealer").style.display="block"; dlgLoad(); }
   function closeDealer(){ $("dlg-dealer").style.display="none"; }
   $("dlg-close").onclick=closeDealer;
