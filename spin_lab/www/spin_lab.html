@@ -118,6 +118,12 @@
 
 <script>
 // ── Synthesized sound engine (Web Audio, no files) ──────────────
+// frappe-web bundle loads deferred; inline scripts must wait for frappe.call
+window.whenFrappe = function (fn) {
+  if (window.frappe && frappe.call) fn();
+  else setTimeout(() => window.whenFrappe(fn), 100);
+};
+
 window.SLAudio = (function () {
   let ctx = null, muted = false;
   function ac() {
@@ -367,7 +373,7 @@ window.SLAudio = (function () {
   });
 
   drawReels(["—", "—", "—"]);
-  loadHeat();
+  whenFrappe(loadHeat);
 })();
 </script>
 <script>
@@ -521,7 +527,7 @@ window.SLAudio = (function () {
   $("vs-profile").addEventListener("change", loadRtp);
   $("vs-theme").addEventListener("change", () => { drawGrid(null); loadRtp(); });
   drawGrid(null);
-  loadThemes();
+  whenFrappe(loadThemes);
 })();
 </script>
 
