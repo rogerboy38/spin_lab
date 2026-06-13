@@ -15,6 +15,7 @@ def after_migrate():
 
 
 def seed_all():
+    seed_scoring_profiles()
     seed_classic_themes()
     seed_video_themes()
     seed_progressive_meters()
@@ -98,6 +99,33 @@ def seed_progressive_meters():
         doc.contribution_rate = c
         doc.hit_probability = p
         doc.must_hit_max = mhb
+        doc.enabled = 1
+        doc.insert(ignore_permissions=True)
+    frappe.db.commit()
+
+
+DEMO_PROFILES = [
+    # key, label, rtp, note
+    ("nevada_min", "Nevada min · 75%", 0.75, "US Nevada legal MINIMUM RTP (regulated, certified)."),
+    ("loose_85", "loose market · 85%", 0.85, "Loose/under-regulated market — e.g. Mexico has no mandated payout floor."),
+    ("tight_90", "tight · 90%", 0.90, "Tight but legal in stricter US states (NJ floor is 83%)."),
+    ("casino_edge", "casino_edge · 95%", 0.95, "Typical competitive commercial RTP."),
+    ("fair", "fair · 100%", 1.00, "Zero house edge — study pure variance."),
+    ("player_edge", "player_edge · 105%", 1.05, "Hypothetical +EV; never offered commercially."),
+]
+
+
+def seed_scoring_profiles():
+    if not frappe.db.exists("DocType", "Scoring Profile"):
+        return
+    for key, label, rtp, note in DEMO_PROFILES:
+        if frappe.db.exists("Scoring Profile", key):
+            continue
+        doc = frappe.new_doc("Scoring Profile")
+        doc.profile_key = key
+        doc.label = label
+        doc.target_rtp = rtp
+        doc.jurisdiction_note = note
         doc.enabled = 1
         doc.insert(ignore_permissions=True)
     frappe.db.commit()

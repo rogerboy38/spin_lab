@@ -337,3 +337,11 @@ class TestGamblersRuin(unittest.TestCase):
         r = simulate_ruin("Classic Fruits", 5, 500, "casino_edge",
                           sessions=600, seed=1)
         self.assertGreater(r["p_ruin"], 0.9)   # tiny bank, huge goal, edge -> doom
+
+
+class TestProfilesEditable(unittest.TestCase):
+    def test_engine_defaults_present(self):
+        # the pure engine keeps all six defaults regardless of DB
+        from spin_lab.engine.themes import SCORING_PROFILES
+        for k in ("nevada_min", "loose_85", "tight_90", "casino_edge", "fair", "player_edge"):
+            self.assertIn(k, SCORING_PROFILES)

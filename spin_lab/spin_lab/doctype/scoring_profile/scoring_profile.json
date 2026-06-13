@@ -1,0 +1,18 @@
+{
+ "doctype": "DocType", "name": "Scoring Profile", "module": "Spin Lab",
+ "engine": "InnoDB", "autoname": "field:profile_key",
+ "field_order": ["profile_key", "label", "target_rtp", "enabled", "jurisdiction_note"],
+ "fields": [
+  {"fieldname": "profile_key", "fieldtype": "Data", "label": "Profile Key (code id)", "reqd": 1, "unique": 1},
+  {"fieldname": "label", "fieldtype": "Data", "label": "Display Label", "reqd": 1},
+  {"fieldname": "target_rtp", "fieldtype": "Float", "label": "Target RTP (1.0 = 100%)", "reqd": 1, "precision": "4"},
+  {"fieldname": "enabled", "fieldtype": "Check", "label": "Enabled", "default": "1"},
+  {"fieldname": "jurisdiction_note", "fieldtype": "Small Text", "label": "Jurisdiction / Notes"}
+ ],
+ "permissions": [
+  {"role": "System Manager", "read": 1, "write": 1, "create": 1, "delete": 1},
+  {"role": "All", "read": 1}
+ ],
+ "owner": "Administrator",
+ "modified": "2026-06-12 00:00:00.000000", "sort_field": "target_rtp", "sort_order": "ASC"
+}

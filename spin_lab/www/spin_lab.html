@@ -57,11 +57,67 @@
   #vs-card:fullscreen{display:flex;flex-direction:column;justify-content:center;overflow:auto}
   #vs-card.sl-card{position:relative}
   .vs-ctl{background:#1c2541;color:#f5e6b8;border:1px solid #3a4060 !important}
+
+  /* ── The Hook: cinematic teaching experience ── */
+  .hook-cta{margin:1.2rem auto;max-width:780px;text-align:center;border-radius:18px;padding:1.4rem 1.6rem;
+    background:linear-gradient(135deg,#1a0a2e 0%,#2b1055 50%,#7d3c98 100%);color:#fff;
+    box-shadow:0 10px 34px rgba(80,20,120,.4);position:relative;overflow:hidden}
+  .hook-cta h2{margin:0 0 .3rem;font-size:1.7rem;font-weight:900;letter-spacing:.01em}
+  .hook-cta p{margin:.2rem 0 1rem;color:#d9c8f0;font-size:.95rem}
+  .hook-cta button{background:linear-gradient(180deg,#ffd86b,#f5a623);color:#1a0a2e;border:none;
+    font-weight:800;font-size:1.05rem;padding:.7rem 1.6rem;border-radius:999px;cursor:pointer;
+    box-shadow:0 4px 16px rgba(245,166,35,.5);animation:hookpulse 2s ease-in-out infinite}
+  @keyframes hookpulse{50%{transform:scale(1.04)}}
+  #hook-stage{display:none;position:fixed;inset:0;z-index:9999;flex-direction:column;align-items:center;
+    justify-content:center;background:radial-gradient(ellipse at 50% 30%,#1c1040 0%,#05030f 75%);
+    color:#fff;font-family:system-ui;padding:2rem;text-align:center}
+  #hook-act{font-size:.8rem;letter-spacing:.35em;text-transform:uppercase;color:#b79cff;opacity:.85}
+  #hook-narr{font-size:clamp(1.2rem,3vw,2rem);font-weight:700;max-width:780px;min-height:5rem;
+    margin:1rem 0;line-height:1.35;transition:opacity .4s}
+  #hook-bal{font-size:clamp(2.4rem,7vw,4.4rem);font-weight:900;font-variant-numeric:tabular-nums;
+    text-shadow:0 0 26px rgba(255,215,0,.5)}
+  #hook-bal small{font-size:1rem;font-weight:600;opacity:.7;letter-spacing:.1em}
+  #hook-spark{margin:1rem 0;max-width:90vw}
+  #hook-feed{font-size:1.6rem;letter-spacing:.4rem;min-height:2rem;opacity:.9}
+  #hook-sub{color:#9aa0b5;font-size:.85rem;margin-top:.5rem}
+  .hook-skip{position:absolute;top:1.2rem;right:1.4rem;background:none;border:1px solid #5a4a7a;
+    color:#b79cff;border-radius:999px;padding:.3rem .9rem;cursor:pointer;font-size:.8rem;animation:none;box-shadow:none}
+  #hook-reveal{display:none;max-width:820px}
+  #hook-reveal h1{font-size:clamp(1.8rem,5vw,3rem);font-weight:900;
+    background:linear-gradient(180deg,#ff6b6b,#c0392b);-webkit-background-clip:text;background-clip:text;color:transparent}
+  #hook-reveal .rv{font-size:1.05rem;line-height:1.6;color:#e6e6f0;margin:.8rem 0}
+  #hook-reveal .rv b{color:#ffd86b}
+  #hook-reveal .verdict{font-size:clamp(1.3rem,4vw,2.1rem);font-weight:900;color:#fff;margin:1.2rem 0 .4rem;
+    letter-spacing:.02em}
+  #hook-reveal button{margin:.4rem .4rem 0;padding:.6rem 1.4rem;border-radius:999px;border:none;
+    font-weight:700;cursor:pointer;animation:none;box-shadow:none}
+  .hook-btn-primary{background:#ffd86b;color:#1a0a2e}
+  .hook-btn-ghost{background:transparent;color:#b79cff;border:1px solid #5a4a7a !important}
 </style>
 
 <div class="sl-wrap">
   <h1>🎰 Spin Lab</h1>
   <p style="text-align:center">Educational probability simulator — virtual credits only, no real money.</p>
+
+  <div class="hook-cta">
+    <h2>🎣 The Hook</h2>
+    <p>Before you play — let the machine play <i>you</i> for 90 seconds. Watch how a casino
+      turns a generous welcome into an empty wallet, one flashing "win" at a time.</p>
+    <button id="hook-start">▶ Experience the hook</button>
+  </div>
+
+  <div id="hook-stage">
+    <button class="hook-skip" id="hook-skip">skip ✕</button>
+    <div id="hook-live">
+      <div id="hook-act">The Welcome</div>
+      <div id="hook-narr"></div>
+      <div id="hook-bal">100.00 <small>CREDITS</small></div>
+      <canvas id="hook-spark" width="640" height="120"></canvas>
+      <div id="hook-feed"></div>
+      <div id="hook-sub"></div>
+    </div>
+    <div id="hook-reveal"></div>
+  </div>
 
   <div class="sl-card">
     <div class="sl-row">
@@ -915,12 +971,182 @@ window.SLAudio = (function () {
     });
   }
 
+  // ── profiles are DB-editable (Scoring Profile DocType): populate from API ──
+  function fillProfiles(sel, list, def) {
+    const cur = sel.value;
+    sel.innerHTML = list.map((p) =>
+      `<option value="${p.key}">${p.label || (p.key + " · " + Math.round(p.rtp*100) + "%")}</option>`).join("");
+    sel.value = list.some((p) => p.key === cur) ? cur : def;
+  }
+  function populateProfiles() {
+    vcall("list_profiles_api", {}, (list) => {
+      if (!list || !list.length) return;
+      fillProfiles($("sl-profile"), list, "fair");
+      fillProfiles($("vs-profile"), list, "fair");
+      fillProfiles($("gr-profile"), list, "casino_edge");
+      loadRtp();
+    });
+  }
+
   $("vs-profile").addEventListener("change", loadRtp);
   $("vs-profile").addEventListener("change", loadProgressives);
   $("vs-theme").addEventListener("change", () => { drawGrid(null); loadRtp(); });
   drawGrid(null);
   whenFrappe(loadThemes);
   whenFrappe(loadProgressives);
+  whenFrappe(populateProfiles);
+})();
+</script>
+
+<script>
+// ── The Hook: a guided 90-second teaching experience ──────────────
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const stage = $("hook-stage");
+  let running = false, aborted = false;
+
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  function call(method, args) {
+    return new Promise((resolve) => {
+      frappe.call({ method: "spin_lab.api.slot_engine." + method, args,
+        callback: (r) => resolve(r.message), error: () => resolve(null) });
+    });
+  }
+
+  // state
+  let balance, peak, spins, wins, ldw, history;
+  const spark = $("hook-spark").getContext("2d");
+
+  function drawSpark() {
+    const W = 640, H = 120, c = spark;
+    c.clearRect(0, 0, W, H);
+    if (history.length < 2) return;
+    const lo = Math.min(0, ...history), hi = Math.max(peak, ...history, 1);
+    const X = (i) => (i / (history.length - 1)) * W;
+    const Y = (v) => H - 6 - ((v - lo) / (hi - lo)) * (H - 12);
+    // zero / start reference
+    c.strokeStyle = "rgba(255,255,255,.18)"; c.setLineDash([4,4]); c.lineWidth = 1;
+    c.beginPath(); c.moveTo(0, Y(100)); c.lineTo(W, Y(100)); c.stroke(); c.setLineDash([]);
+    // gradient line: green while above start, red below
+    for (let i = 1; i < history.length; i++) {
+      c.strokeStyle = history[i] >= 100 ? "#2ecc71" : "#e74c3c";
+      c.lineWidth = 2.5; c.beginPath();
+      c.moveTo(X(i-1), Y(history[i-1])); c.lineTo(X(i), Y(history[i])); c.stroke();
+    }
+    // peak marker
+    const pi = history.indexOf(peak);
+    if (pi > 0) { c.fillStyle = "#ffd86b"; c.beginPath(); c.arc(X(pi), Y(peak), 4, 0, 7); c.fill(); }
+  }
+
+  function setBal() {
+    $("hook-bal").innerHTML = balance.toFixed(2) + ' <small>CREDITS</small>';
+    $("hook-bal").style.color = balance >= 100 ? "#2ecc71" : balance >= 60 ? "#ffd86b" : "#e74c3c";
+  }
+  async function narrate(act, text, hold = 2600) {
+    $("hook-act").textContent = act;
+    const n = $("hook-narr"); n.style.opacity = 0; await sleep(250);
+    n.textContent = text; n.style.opacity = 1;
+    await sleep(hold);
+  }
+
+  const ICON = { CHERRY:"🍒", LEMON:"🍋", PLUM:"🫐", ORANGE:"🍊", GRAPE:"🍇",
+                 STRAWBERRY:"🍓", BELL:"🔔", SCATTER:"🎁", WILD:"🃏" };
+
+  async function act(profile, n, gap, onSpin) {
+    for (let i = 0; i < n && !aborted; i++) {
+      const res = await call("video_spin",
+        { theme: "Classic Fruits 4096", stake: 1, profile });
+      if (!res) { await sleep(gap); continue; }
+      balance += res.net; spins += 1;
+      if (res.total_win > 0) wins += 1;
+      if (res.total_win > 0 && res.total_win <= res.stake) ldw += 1;
+      peak = Math.max(peak, balance);
+      history.push(balance);
+      setBal(); drawSpark();
+      const g = (res.grid && res.grid[0]) ? res.grid : [["CHERRY"],["LEMON"],["PLUM"]];
+      $("hook-feed").textContent = g.slice(0,3).map((col) => ICON[col[0]] || "•").join(" ");
+      if (onSpin) onSpin(res, i);
+      await sleep(gap);
+    }
+  }
+
+  function reveal() {
+    $("hook-live").style.display = "none";
+    const rv = $("hook-reveal");
+    rv.style.display = "block";
+    const ldwPct = wins ? Math.round(100 * ldw / wins) : 0;
+    const lost = (100 - balance).toFixed(2);
+    rv.innerHTML = `
+      <div id="hook-act">The Reveal</div>
+      <h1>This was never a game.</h1>
+      <p class="rv">You started with <b>100</b>. You climbed to <b>${peak.toFixed(2)}</b> and felt unstoppable.
+        You ended with <b>${balance.toFixed(2)}</b> — down <b>${lost}</b> in ${spins} spins.</p>
+      <p class="rv">The machine lit up as a <b>win ${wins}</b> times. But <b>${ldw} of those — ${ldwPct}%</b>
+        paid back <i>less than you bet</i>. Your brain logged them as victories.
+        The math logged them as losses. That gap is the <b>Loss Disguised as a Win</b>, and it is the hook.</p>
+      <p class="rv">Nothing on screen changed when the payout quietly dropped from a generous
+        <b>launch</b> to a tight <b>85%</b>. Same lights. Same sounds. Same "wins." Only the arithmetic moved —
+        silently, against you.</p>
+      <p class="rv">Keep going and the ending is a theorem, not a risk: with a house edge and finite money,
+        ruin probability climbs toward <b>~99%</b>. There is no streak, no system, no "due" that escapes it.</p>
+      <div class="verdict">🎰 It is not a game. It is a designed extraction.</div>
+      <p class="rv">The only winning move was to stop — and that door was open the entire time.</p>
+      <div>
+        <button class="hook-btn-primary" id="hook-close">I see it now</button>
+        <button class="hook-btn-ghost" id="hook-math">Show me the math ↓</button>
+      </div>`;
+    $("hook-close").onclick = end;
+    $("hook-math").onclick = () => { end(); const gr = document.getElementById("gr-run");
+      if (gr) gr.closest(".sl-card").scrollIntoView({ behavior: "smooth" }); };
+  }
+
+  function end() {
+    aborted = true; running = false;
+    stage.style.display = "none";
+    if (window.SLAudio) {} // no-op
+  }
+
+  async function run() {
+    if (running) return;
+    running = true; aborted = false;
+    balance = 100; peak = 100; spins = 0; wins = 0; ldw = 0; history = [100];
+    $("hook-live").style.display = "block"; $("hook-reveal").style.display = "none";
+    stage.style.display = "flex"; setBal(); drawSpark(); $("hook-feed").textContent = "";
+
+    // ACT 1 — THE FREE FOOD (loose launch, euphoria)
+    $("hook-sub").textContent = "RTP this act: 105% — the casino is paying YOU to be here";
+    await narrate("Act 1 · The Welcome", "Welcome! First spins on the house — and look, you're already up. 🎉");
+    await act("player_edge", 12, 360, (res) => {
+      if (res.total_win > res.stake) { if (window.SLAudio) SLAudio.win(res.total_win/res.stake); }
+    });
+    await narrate("Act 1 · The Welcome", "This place is generous. You're winning. You'll be back tomorrow… and you tell your friends.", 2800);
+
+    // ACT 2 — THE WALLS (tighten silently, LDWs keep the lights on)
+    $("hook-sub").textContent = "RTP just dropped to 85% — did you notice? Nothing on screen changed.";
+    await narrate("Act 2 · The Walls", "You're a regular now. Same lights, same sounds. Nothing looks different…", 2600);
+    let calledLdw = false;
+    await act("loose_85", 22, 300, (res) => {
+      if (window.SLAudio && res.total_win > 0) SLAudio.win(Math.max(1, res.total_win/res.stake));
+      if (!calledLdw && res.total_win > 0 && res.total_win <= res.stake) {
+        calledLdw = true;
+        $("hook-sub").textContent = `↑ That "WIN" of ${res.total_win.toFixed(2)} on a ${res.stake.toFixed(2)} bet… was a loss.`;
+      }
+    });
+    await narrate("Act 2 · The Walls", "Still feels like winning, doesn't it? But the wall is up. The slope is down. You just can't feel it.", 2900);
+
+    // ACT 3 — THE CLOSED GATE (the edge runs to the floor)
+    $("hook-sub").textContent = "The edge is just… running now. Every spin, a little more.";
+    await narrate("Act 3 · The Gate", "\"One more. I'll win it back.\" Keep going — watch where the line goes.", 2600);
+    await act("loose_85", 18, 230, (res) => {
+      if (window.SLAudio && res.total_win > res.stake) SLAudio.win(res.total_win/res.stake);
+    });
+    if (window.SLAudio) SLAudio.lose();
+    await narrate("Act 3 · The Gate", "And there it is.", 1600);
+    if (!aborted) reveal();
+  }
+
+  $("hook-start").addEventListener("click", () => window.whenFrappe(run));
+  $("hook-skip").addEventListener("click", () => { if ($("hook-reveal").style.display === "block") end(); else { aborted = true; setTimeout(reveal, 200); } });
 })();
 </script>
 

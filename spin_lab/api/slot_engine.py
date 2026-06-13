@@ -16,6 +16,7 @@ MAX_SIM_SPINS = 1_000_000
 
 @frappe.whitelist()
 def spin_once(theme: str = "Classic Fruits", stake_points: float = 1.0, profile: str = "fair"):
+    sync_profiles()
     result = engine.spin_once(theme, float(stake_points), profile)
     doc = frappe.new_doc("Slot Spin")
     doc.theme = theme
@@ -32,6 +33,7 @@ def spin_once(theme: str = "Classic Fruits", stake_points: float = 1.0, profile:
 @frappe.whitelist()
 def simulate(theme: str, n_spins: int = 10000, profile: str = "fair",
              stake_points: float = 1.0, seed: int | None = None):
+    sync_profiles()
     n_spins = min(int(n_spins), MAX_SIM_SPINS)
     summary = engine.simulate(theme, n_spins, profile, float(stake_points),
                               int(seed) if seed is not None else None)
@@ -50,6 +52,7 @@ def simulate(theme: str, n_spins: int = 10000, profile: str = "fair",
 @frappe.whitelist()
 def compare_strategies(theme: str, n_spins: int = 10000, profile: str = "fair",
                        seed: int | None = None):
+    sync_profiles()
     n_spins = min(int(n_spins), MAX_SIM_SPINS)
     return strategy_engine.compare_strategies(
         theme, n_spins, profile, int(seed) if seed is not None else None
@@ -69,6 +72,13 @@ def get_event_heat(theme: str, event: str | None = None,
 # --------------------------------------------------------------------------
 
 from spin_lab.engine import video_slot as video_engine
+from spin_lab.api.profiles import sync_profiles
+
+
+@frappe.whitelist(allow_guest=True)
+def list_profiles_api():
+    from spin_lab.api.profiles import list_profiles
+    return list_profiles()
 
 
 def _resolve_any_video_theme(theme: str):
@@ -93,6 +103,7 @@ def video_themes():
 
 @frappe.whitelist()
 def video_spin(theme: str = "Deep Sea 4096", stake: float = 1.0, profile: str = "fair"):
+    sync_profiles()
     result = video_engine.video_spin(_resolve_any_video_theme(theme), float(stake), profile)
     # progressive meters: shared machine-level state (see api/progressive.py)
     from spin_lab.api.progressive import process_spin
@@ -108,6 +119,7 @@ def video_spin(theme: str = "Deep Sea 4096", stake: float = 1.0, profile: str = 
 @frappe.whitelist()
 def video_simulate(theme: str = "Deep Sea 4096", n_spins: int = 10000,
                    profile: str = "fair", stake: float = 1.0, seed: int | None = None):
+    sync_profiles()
     n_spins = min(int(n_spins), 200_000)  # free-spin resolution is heavier per spin
     summary = video_engine.video_simulate(
         _resolve_any_video_theme(theme), n_spins, profile, float(stake),
@@ -125,6 +137,7 @@ def video_simulate(theme: str = "Deep Sea 4096", n_spins: int = 10000,
 
 @frappe.whitelist()
 def video_info(theme: str = "Deep Sea 4096", profile: str = "fair"):
+    sync_profiles()
     """Theme metadata + exact analytic RTP decomposition for the UI."""
     t = _resolve_any_video_theme(theme)
     r = video_engine.analytic_rtp(t)
@@ -166,6 +179,7 @@ def meter_analysis_api(profile: str = "fair", stake: float = 1.0):
 def gamblers_ruin(theme: str = "Classic Fruits", bankroll: float = 50,
                   goal: float = 100, profile: str = "casino_edge",
                   stake: float = 1.0, sessions: int = 1500):
+    sync_profiles()
     from spin_lab.engine.ruin import simulate_ruin
     sessions = min(int(sessions), 4000)
     return simulate_ruin(theme, float(bankroll), float(goal), profile,
