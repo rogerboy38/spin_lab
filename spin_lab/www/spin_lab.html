@@ -139,9 +139,18 @@
 
   <div class="sl-card" id="lot-card">
     <h3>🎴 La Lotería del Enganche <small style="color:#caa98f">— the "free food" stage</small></h3>
-    <p class="sl-note" style="text-align:center">RTP <b style="color:#2ecc71">120%</b> — the house is paying
-      <b>you</b> to be here. Win after win. Now watch the jackpots dangled above… and how they never come.</p>
+    <p class="sl-note" style="text-align:center">RTP <b id="lot-rtp-label" style="color:#2ecc71">120%</b> — <span id="lot-rtp-tag">the house is paying <b>you</b> to be here. Win after win.</span>
+      The jackpots dangled above? Watch how they never come.</p>
     <div class="sl-row">
+      <select id="lot-rtp-sel" class="form-control vs-ctl" style="width:auto" title="stage RTP">
+        <option value="1.30">RTP 130% · launch bait</option>
+        <option value="1.20" selected>RTP 120% · free food</option>
+        <option value="1.10">RTP 110% · still loose</option>
+        <option value="1.00">RTP 100% · fair</option>
+        <option value="0.95">RTP 95% · the walls go up</option>
+        <option value="0.85">RTP 85% · the gate closes</option>
+        <option value="0.75">RTP 75% · floor</option>
+      </select>
       <button id="lot-call" class="btn sl-btn">¡Llamar! (1 draw)</button>
       <button id="lot-100" class="btn sl-btn vs-ctl">Auto ×100</button>
       <button id="lot-1000" class="btn sl-btn vs-ctl">Auto ×1000</button>
@@ -1197,7 +1206,7 @@ window.SLAudio = (function () {
 (function () {
   const $ = (id) => document.getElementById(id);
   const cv = $("lot-canvas"), ctx = cv.getContext("2d");
-  const TARGET_RTP = 1.20;
+  let TARGET_RTP = 1.20, baseUnscaled = 1;
   let cards = [], tiers = [], scale = 1, jackpots = [];
   let balance = 100, draws = 0, wins = 0, staked = 0, paid = 0;
   let jackHits = { MINI:0, MINOR:0, MAJOR:0, GRAND:0 };
@@ -1213,7 +1222,8 @@ window.SLAudio = (function () {
     const cfg = await call("loteria_config");
     if (!cfg) return;
     cards = cfg.cards; tiers = cfg.tiers;
-    scale = TARGET_RTP / cfg.base_rtp_unscaled;
+    baseUnscaled = cfg.base_rtp_unscaled;
+    scale = TARGET_RTP / baseUnscaled;
     jackpots = (await call("loteria_jackpot_odds")) || [];
     drawBoard([], null);
     renderPrizes();
@@ -1317,6 +1327,28 @@ window.SLAudio = (function () {
     $("lot-cantor").textContent = `${n} draws done · you're ${balance>=100?"UP":"down"} ${(balance-100).toFixed(2)} · jackpots hit: ${Object.values(jackHits).reduce((a,b)=>a+b,0)}`;
     running = false;
   }
+
+  function applyRtp(v) {
+    TARGET_RTP = v;
+    scale = TARGET_RTP / baseUnscaled;
+    const up = v >= 1.0;
+    const lbl = $("lot-rtp-label");
+    lbl.textContent = Math.round(v * 100) + "%";
+    lbl.style.color = up ? "#2ecc71" : "#e74c3c";
+    $("lot-rtp-tag").innerHTML = up
+      ? "the house is paying <b>you</b> to be here. Win after win."
+      : "the food is gone — now the house takes a little on <b>every</b> draw.";
+    // fresh start so each scenario reads cleanly
+    balance = 100; draws = 0; wins = 0; staked = 0; paid = 0;
+    jackHits = { MINI:0, MINOR:0, MAJOR:0, GRAND:0 };
+    $("lot-bal").innerHTML = '100.00 <small>CREDITS</small>';
+    $("lot-bal").style.color = "#2ecc71";
+    $("lot-draws").textContent = 0; $("lot-wins").textContent = 0; $("lot-rtp").textContent = "—";
+    $("lot-cantor").textContent = up ? "El cantor espera… press ¡Llamar!"
+                                     : "Same cards. Same lights. Now the math is against you.";
+    drawBoard([], null); renderPrizes();
+  }
+  $("lot-rtp-sel").addEventListener("change", (e) => { running = false; applyRtp(parseFloat(e.target.value)); });
 
   $("lot-call").addEventListener("click", single);
   $("lot-100").addEventListener("click", () => auto(100));
