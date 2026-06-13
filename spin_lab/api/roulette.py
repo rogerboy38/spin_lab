@@ -53,6 +53,9 @@ def roulette_bet(player, color, kind, amount, target=None):
         frappe.throw("Bad bet kind")
     s = _state()
     bets = _load(s, "live_bets", [])
+    # canonical target: numeric kinds keep their target; even-money use the kind
+    if kind in ("red", "black", "odd", "even", "low", "high"):
+        target = kind
     bets.append({"player": str(player)[:24], "color": str(color)[:16],
                  "kind": kind, "target": target, "amount": amount})
     s.db_set("live_bets", json.dumps(bets), update_modified=False)

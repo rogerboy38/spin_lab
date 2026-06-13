@@ -39,6 +39,7 @@
     <span class="rz-brand">&#127919; SPIN LAB ROULETTE</span>
     <span class="sp"></span>
     <span>You: <b class="you" id="rz-name">—</b> &middot; <span id="rz-bal" class="you">1000.00</span> cr</span>
+    <span id="rz-login"></span>
     <a class="rz-btn" href="/casino">&#8962; Casino</a>
     <a class="rz-btn" href="/spin-lab">&#128202; Lab</a>
   </div>
@@ -70,6 +71,7 @@
         <h2>&#129534; Your Seat</h2>
         <canvas id="rl-tray" width="340" height="160" style="background:#0b3d24;border-radius:10px"></canvas>
         <div class="ctl">
+          <button class="rz-btn" id="rl-repeat">&#8635; repeat last bet</button>
           <button class="rz-btn" id="rl-clear">clear my bets</button>
           <button class="spinbtn" id="rl-spin">SPIN THE WHEEL</button>
         </div>
@@ -112,6 +114,13 @@
   $("rl-setname").onclick=function(){var v=$("rl-rename").value.trim().slice(0,24);if(v){me=v;lsSet("rl_name",me);$("rz-name").textContent=me;}};
 
   function call(m,a){return new Promise(function(r){frappe.call({method:"spin_lab.api.roulette."+m,args:a||{},callback:function(x){r(x.message);},error:function(){r(null);}});});}
+  function acc(m,a){return new Promise(function(r){frappe.call({method:"spin_lab.api.casino_accounts."+m,args:a||{},callback:function(x){r(x.message);},error:function(){r(null);}});});}
+  var serverWallet=false;
+  function walletDelta(d,cb){ if(serverWallet){ acc("adjust",{delta:d}).then(function(r){ if(r){bal=r.balance;setBal();} if(cb)cb(); }); } else { bal+=d; setBal(); if(cb)cb(); } }
+  function initAccount(){ acc("whoami").then(function(w){ if(w&&!w.guest){ serverWallet=true; me=w.name; myColor=w.color||myColor;
+      if(w.balance!=null){bal=w.balance;setBal();} $("rz-name").textContent=me; $("rz-name").style.color=myColor; $("rl-rename").style.display="none"; $("rl-setname").style.display="none";
+      $("rz-login").innerHTML = w.is_admin ? '<a class="rz-btn" href="/casino-admin" style="border-color:#ffd86b;color:#ffd86b">&#128081; Dealer</a>' : '<span style="color:#37e0a0;font-size:.8rem">&#9679; account</span>';
+    } else { $("rz-login").innerHTML='<a class="rz-btn" href="/login?redirect-to=/roulette">Log in</a>'; } }); }
   function whenFrappe(fn){(window.frappe&&frappe.call&&(frappe.csrf_token||document.readyState==="complete"))?fn():setTimeout(function(){whenFrappe(fn);},120);}
   var actx=null;function tone(f,d,w,t,g,ef){w=w||0;t=t||"square";g=g||0.05;try{if(!actx)actx=new(window.AudioContext||window.webkitAudioContext)();if(actx.state==="suspended")actx.resume();var t0=actx.currentTime+w,o=actx.createOscillator(),gn=actx.createGain();o.type=t;o.frequency.setValueAtTime(f,t0);if(ef)o.frequency.exponentialRampToValueAtTime(ef,t0+d);gn.gain.setValueAtTime(g,t0);gn.gain.exponentialRampToValueAtTime(0.0001,t0+d);o.connect(gn);gn.connect(actx.destination);o.start(t0);o.stop(t0+d+0.05);}catch(e){}}
 
@@ -138,9 +147,10 @@
     var colT=[3,2,1];for(var r2=0;r2<3;r2++)zones.push({x:x0+12*CW,y:y0+r2*CH,w:46,h:CH,kind:"column",target:colT[r2],label:"2:1",fill:"#0b3d24"});
     var dy=y0+3*CH;for(var d=0;d<3;d++)zones.push({x:x0+d*4*CW,y:dy,w:4*CW,h:38,kind:"dozen",target:d+1,label:["1st 12","2nd 12","3rd 12"][d],fill:"#0b3d24"});
     var ey=dy+38,ew=2*CW,em=[["low","1-18"],["even","EVEN"],["red","RED"],["black","BLACK"],["odd","ODD"],["high","19-36"]];
-    for(var k=0;k<6;k++)zones.push({x:x0+k*ew,y:ey,w:ew,h:38,kind:em[k][0],target:null,label:em[k][1],fill:em[k][0]==="red"?"#7a241b":em[k][0]==="black"?"#161616":"#0b3d24"});}
+    for(var k=0;k<6;k++)zones.push({x:x0+k*ew,y:ey,w:ew,h:38,kind:em[k][0],target:em[k][0],label:em[k][1],fill:em[k][0]==="red"?"#7a241b":em[k][0]==="black"?"#161616":"#0b3d24"});}
   var tc=$("rl-table").getContext("2d"),liveBets=[];
-  function zoneOf(b){return zones.find(function(z){return z.kind===b.kind&&(""+z.target)===(""+b.target);});}
+  function tnorm(t){return (t===null||t===undefined||t==="")?"":(""+t);}
+  function zoneOf(b){return zones.find(function(z){return z.kind===b.kind&&tnorm(z.target)===tnorm(b.target);});}
   function drawTable(){ tc.clearRect(0,0,760,250);
     zones.forEach(function(z){tc.fillStyle=z.fill;tc.fillRect(z.x,z.y,z.w-2,z.h-2);tc.strokeStyle="rgba(255,255,255,.28)";tc.lineWidth=1;tc.strokeRect(z.x,z.y,z.w-2,z.h-2);
       if(z.label){tc.fillStyle="#fff";tc.font=(z.kind==="straight"&&z.target!==0&&z.target!=="00")?"bold 14px system-ui":"bold 11px system-ui";tc.textAlign="center";tc.textBaseline="middle";tc.save();
@@ -152,7 +162,8 @@
         tc.fillStyle="#111";tc.font="bold 9px system-ui";tc.textAlign="center";tc.textBaseline="middle";tc.fillText(amt>=100?"99+":(""+Math.round(amt)),cx,cy);i++;});});}
   $("rl-table").addEventListener("click",function(e){if(spinning)return;var rect=e.target.getBoundingClientRect();var x=(e.clientX-rect.left)*(760/rect.width),y=(e.clientY-rect.top)*(250/rect.height);
     var z=zones.find(function(z){return x>=z.x&&x<=z.x+z.w&&y>=z.y&&y<=z.y+z.h;});if(!z)return;if(bal<denom){$("rl-round").textContent="not enough credits";return;}
-    bal-=denom;setBal();tone(660,0.05,0,"square",0.04);call("roulette_bet",{player:me,color:myColor,kind:z.kind,target:z.target,amount:denom}).then(function(r){if(r&&r.bets){liveBets=r.bets;drawTable();drawTray();}});});
+    tone(660,0.05,0,"square",0.04);
+    walletDelta(-denom,function(){call("roulette_bet",{player:me,color:myColor,kind:z.kind,target:z.target,amount:denom}).then(function(r){if(r&&r.bets){liveBets=r.bets;drawTable();drawTray();}});});});
 
   // TRAY
   var trc=$("rl-tray").getContext("2d"),chipRects=[];
@@ -174,10 +185,19 @@
   $("rl-am").onclick=function(){switchVariant("american");};
 
   function refreshRound(){ call("roulette_state").then(applyState); }
-  $("rl-clear").onclick=function(){var mine=liveBets.filter(function(b){return b.player===me;});bal+=mine.reduce(function(a,b){return a+b.amount;},0);setBal();call("roulette_clear",{player:me}).then(function(r){if(r&&r.bets){liveBets=r.bets;drawTable();drawTray();}});};
-  $("rl-spin").onclick=function(){if(spinning)return;call("roulette_spin").then(function(res){if(!res)return;
+  $("rl-clear").onclick=function(){var mine=liveBets.filter(function(b){return b.player===me;});walletDelta(mine.reduce(function(a,b){return a+b.amount;},0));call("roulette_clear",{player:me}).then(function(r){if(r&&r.bets){liveBets=r.bets;drawTable();drawTray();}});};
+  var lastMine=[];
+  $("rl-repeat").onclick=function(){ if(spinning||!lastMine.length)return;
+    var queue=lastMine.slice();
+    (function place(i){ if(i>=queue.length)return; var b=queue[i];
+      if(bal<b.amount){ $("rl-round").textContent="not enough credits to repeat all"; return; }
+      walletDelta(-b.amount,function(){call("roulette_bet",{player:me,color:myColor,kind:b.kind,target:b.target,amount:b.amount}).then(function(r){ if(r&&r.bets){liveBets=r.bets;drawTable();drawTray();} place(i+1); });}); })(0);
+    tone(620,0.05); };
+  $("rl-spin").onclick=function(){if(spinning)return;
+    lastMine=liveBets.filter(function(b){return b.player===me;}).map(function(b){return {kind:b.kind,target:b.target,amount:b.amount};});
+    call("roulette_spin").then(function(res){if(!res)return;
     spinWheelTo(res.number,function(){$("rl-result").textContent=lab(res.number)+" "+res.color.toUpperCase();$("rl-result").style.color=colHex(res.number);tone(res.color==="green"?300:520,0.3,0,"sawtooth",0.06);
-      var meRow=(res.players||[]).find(function(p){return p.player===me;});if(meRow){bal+=meRow.won;setBal();if(meRow.won>0)[523,659,784].forEach(function(f,i){tone(f,0.15,i*0.1,"square",0.05);});}
+      var meRow=(res.players||[]).find(function(p){return p.player===me;});if(meRow&&meRow.won>0){walletDelta(meRow.won);[523,659,784].forEach(function(f,i){tone(f,0.15,i*0.1,"square",0.05);});}
       $("rl-players").innerHTML=(res.players&&res.players.length)?("<table class='lead'><tr><th>seat</th><th>staked</th><th>won</th><th>net</th></tr>"+res.players.map(function(p){return "<tr><td style='color:"+(p.color||'#fff')+"'>"+p.player+(p.player===me?" (you)":"")+"</td><td>"+p.staked.toFixed(0)+"</td><td>"+p.won.toFixed(0)+"</td><td style='color:"+(p.net>=0?'#37e0a0':'#ff6b6b')+"'>"+(p.net>=0?'+':'')+p.net.toFixed(0)+"</td></tr>";}).join("")+"</table>"):"<div style='color:#8c88b5'>no bets that round</div>";
       liveBets=[];drawTable();drawTray();refreshRound();});});};
 
@@ -188,6 +208,6 @@
     $("rl-hot").innerHTML=(s.hot||[]).map(function(h){return "<span class='r-"+col(h.n)+"'>"+lab(h.n)+"</span>";}).join("");
     $("rl-cold").innerHTML=(s.cold||[]).map(function(h){return "<span class='r-"+col(h.n)+"'>"+lab(h.n)+"</span>";}).join("");}
 
-  whenFrappe(function(){buildZones();setVariantUI();drawWheel(null);drawTable();drawTray();refreshRound();setInterval(function(){if(!spinning)call("roulette_state").then(applyState);},1800);});
+  whenFrappe(function(){initAccount();buildZones();setVariantUI();drawWheel(null);drawTable();drawTray();refreshRound();setInterval(function(){if(!spinning)call("roulette_state").then(applyState);},1800);});
 })();</script>
 {% endblock %}

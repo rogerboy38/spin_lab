@@ -15,6 +15,7 @@ def after_migrate():
 
 
 def seed_all():
+    seed_casino_roles()
     seed_scoring_profiles()
     seed_classic_themes()
     seed_video_themes()
@@ -128,4 +129,18 @@ def seed_scoring_profiles():
         doc.jurisdiction_note = note
         doc.enabled = 1
         doc.insert(ignore_permissions=True)
+    frappe.db.commit()
+
+
+def seed_casino_roles():
+    for role, desk in (("Casino Admin", 1), ("Casino Player", 0)):
+        if not frappe.db.exists("Role", role):
+            frappe.get_doc({"doctype": "Role", "role_name": role,
+                            "desk_access": desk}).insert(ignore_permissions=True)
+    # the existing Administrator becomes the dealer/admin
+    if frappe.db.exists("User", "Administrator"):
+        try:
+            frappe.get_doc("User", "Administrator").add_roles("Casino Admin")
+        except Exception:
+            pass
     frappe.db.commit()

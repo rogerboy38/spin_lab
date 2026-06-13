@@ -1,0 +1,21 @@
+{
+ "doctype": "DocType", "name": "Casino Account", "module": "Spin Lab",
+ "engine": "InnoDB", "autoname": "field:user",
+ "field_order": ["user", "player_name", "balance", "color", "lifetime_staked", "lifetime_won"],
+ "fields": [
+  {"fieldname": "user", "fieldtype": "Link", "options": "User", "label": "User", "reqd": 1, "unique": 1, "in_list_view": 1},
+  {"fieldname": "player_name", "fieldtype": "Data", "label": "Player Name", "fetch_from": "user.full_name", "read_only": 1, "in_list_view": 1},
+  {"fieldname": "balance", "fieldtype": "Float", "label": "Balance", "default": "1000", "permlevel": 1, "in_list_view": 1, "precision": "2"},
+  {"fieldname": "color", "fieldtype": "Data", "label": "Chip Color", "default": "#ffd86b"},
+  {"fieldname": "lifetime_staked", "fieldtype": "Float", "label": "Lifetime Staked", "permlevel": 1, "precision": "2"},
+  {"fieldname": "lifetime_won", "fieldtype": "Float", "label": "Lifetime Won", "permlevel": 1, "precision": "2"}
+ ],
+ "permissions": [
+  {"role": "Casino Admin", "permlevel": 0, "read": 1, "write": 1, "create": 1, "delete": 1},
+  {"role": "Casino Admin", "permlevel": 1, "read": 1, "write": 1},
+  {"role": "Casino Player", "permlevel": 0, "read": 1, "if_owner": 1},
+  {"role": "System Manager", "permlevel": 0, "read": 1, "write": 1, "create": 1, "delete": 1},
+  {"role": "System Manager", "permlevel": 1, "read": 1, "write": 1}
+ ],
+ "owner": "Administrator", "modified": "2026-06-13 00:00:00.000000", "sort_field": "modified", "sort_order": "DESC"
+}

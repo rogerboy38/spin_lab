@@ -1,0 +1,71 @@
+{% extends "templates/web.html" %}
+{% block title %}Dealer Panel{% endblock %}
+{% block head_include %}
+<style>
+  body{background:#05050c !important}.web-footer,.navbar{display:none !important}
+  #da{min-height:100vh;background:#070710;color:#f3f0ff;font-family:system-ui,sans-serif;padding:1.5rem}
+  .da-wrap{max-width:820px;margin:0 auto}
+  h1{background:linear-gradient(90deg,#ffd86b,#ff3d81);-webkit-background-clip:text;background-clip:text;color:transparent;font-weight:900}
+  .card{background:#10101e;border:1px solid rgba(255,216,107,.2);border-radius:14px;padding:1.2rem;margin:1rem 0}
+  input{background:#15152e;color:#f3f0ff;border:1px solid #34335e;border-radius:8px;padding:.5rem .6rem;margin:.2rem}
+  button{background:linear-gradient(180deg,#ffd86b,#e0a93b);color:#1a0a2e;border:none;border-radius:8px;font-weight:800;padding:.5rem 1rem;cursor:pointer;margin:.2rem}
+  button.ghost{background:transparent;color:#b8b3e0;border:1px solid #34335e}
+  table{width:100%;border-collapse:collapse;margin-top:.6rem}
+  td,th{padding:.45rem .6rem;border-bottom:1px solid #23233f;text-align:left;font-size:.9rem}
+  .bal{font-variant-numeric:tabular-nums;font-weight:800;color:#ffd86b}
+  a{color:#3ad7ff}
+  .deny{color:#ff6b6b;font-weight:700}
+</style>
+{% endblock %}
+{% block page_content %}
+<div id="da"><div class="da-wrap">
+  <h1>&#128081; Dealer Panel</h1>
+  {% if not is_admin %}
+    <p class="deny">You are signed in as {{ user }} but you are not a Casino Admin.
+    Ask the teacher to grant you the role, or <a href="/casino">go to the casino</a>.</p>
+  {% else %}
+  <p style="color:#b8b3e0">Signed in as <b>{{ user }}</b> &middot; manage student seats &amp; chips.
+    <a href="/casino">&#8962; Casino</a> &middot; <a href="/roulette">&#127919; Roulette</a></p>
+
+  <div class="card">
+    <h3>Create a student seat</h3>
+    <input id="d-email" placeholder="email (login id)" style="width:200px">
+    <input id="d-name" placeholder="name" style="width:140px">
+    <input id="d-pass" placeholder="password" style="width:120px">
+    <input id="d-start" type="number" value="1000" style="width:90px" title="starting chips">
+    <button id="d-create">Create</button>
+    <div id="d-msg" style="color:#37e0a0;font-size:.85rem;margin-top:.4rem"></div>
+  </div>
+
+  <div class="card">
+    <h3>Accounts &amp; balances <button class="ghost" id="d-refresh">&#8635; refresh</button></h3>
+    <table id="d-table"><thead><tr><th>player</th><th>user</th><th>balance</th><th>credit</th><th>set</th></tr></thead><tbody></tbody></table>
+  </div>
+  {% endif %}
+</div></div>
+
+{% if is_admin %}
+<script>
+(function(){
+  var $=function(id){return document.getElementById(id);};
+  function call(m,a){return new Promise(function(r){frappe.call({method:"spin_lab.api.casino_accounts."+m,args:a||{},callback:function(x){r(x.message);},error:function(e){r(null);}});});}
+  function load(){ call("list_accounts").then(function(rows){ if(!rows)return;
+    $("d-table").querySelector("tbody").innerHTML=rows.map(function(a){
+      return "<tr><td>"+(a.player_name||"")+"</td><td>"+a.user+"</td><td class='bal'>"+(a.balance||0).toFixed(2)+"</td>"+
+        "<td><input type='number' value='100' style='width:70px' id='cr-"+btoa(a.user)+"'><button data-u='"+a.user+"' class='cr ghost'>+</button></td>"+
+        "<td><input type='number' value='1000' style='width:80px' id='st-"+btoa(a.user)+"'><button data-u='"+a.user+"' class='st'>set</button></td></tr>";
+    }).join("");
+    document.querySelectorAll(".cr").forEach(function(b){b.onclick=function(){var u=b.dataset.u;call("admin_credit",{user:u,amount:$("cr-"+btoa(u)).value}).then(load);};});
+    document.querySelectorAll(".st").forEach(function(b){b.onclick=function(){var u=b.dataset.u;call("admin_set_balance",{user:u,amount:$("st-"+btoa(u)).value}).then(load);};});
+  }); }
+  $("d-refresh").onclick=load;
+  $("d-create").onclick=function(){ var email=$("d-email").value.trim(),name=$("d-name").value.trim(),pass=$("d-pass").value,start=$("d-start").value;
+    if(!email||!pass){$("d-msg").textContent="email and password required";return;}
+    call("admin_create_player",{email:email,first_name:name||email.split("@")[0],password:pass,start:start}).then(function(r){
+      $("d-msg").textContent=r&&r.ok?("Created "+email+" — they log in at /login"):"failed (already exists?)";
+      $("d-email").value="";$("d-name").value="";$("d-pass").value=""; load(); }); };
+  (function w(){ (window.frappe&&frappe.call)?load():setTimeout(w,150); })();
+})();
+</script>
+{% endif %}
+{% endblock %}

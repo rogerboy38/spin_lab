@@ -90,6 +90,7 @@
     <span class="cz-credits"><span id="cz-credits">1000.00</span> <small>CREDITS</small></span>
     <button class="cz-btn" id="cz-sound">&#128266;</button>
     <button class="cz-btn" onclick="location.hash=''">&#8962; Lobby</button>
+    <span id="cz-login"></span>
     <a class="cz-btn" href="/spin-lab" title="the teaching lab">&#128202; The Lab</a>
   </div>
 
@@ -400,7 +401,11 @@
         '<button class="cz-btn" onclick="location.hash=\'ruin\'">See the math →</button>';
       $("hk-go").style.display=""; hkRun=false; }); }
 
-  whenFrappe(function(){ setCredits(); route(); });
+  function accWho(){ frappe.call({method:"spin_lab.api.casino_accounts.whoami",callback:function(x){var w=x.message; if(!w)return;
+    if(w.guest){ $("cz-login").innerHTML='<a class="cz-btn" href="/login?redirect-to=/casino">Log in</a>'; }
+    else { if(w.balance!=null){credits=w.balance;setCredits();} $("cz-login").innerHTML=(w.is_admin?'<a class="cz-btn" href="/casino-admin" style="border-color:#ffd86b;color:#ffd86b">&#128081; Dealer</a>':'')+' <span style="color:#37e0a0;font-size:.78rem">&#9679; '+w.name+'</span>'; }
+  }}); }
+  whenFrappe(function(){ setCredits(); route(); accWho(); });
 })();
 </script>
 {% endblock %}

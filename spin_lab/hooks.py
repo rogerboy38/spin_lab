@@ -25,3 +25,8 @@ scheduler_events = {
 website_route_rules = [
     {"from_route": "/spin-lab", "to_route": "spin_lab"},
 ]
+
+
+doc_events = {
+    "User": {"after_insert": "spin_lab.api.casino_accounts_hooks.on_user_insert"}
+}
