@@ -1,0 +1,367 @@
+{% extends "templates/web.html" %}
+{% block title %}Spin Lab Casino{% endblock %}
+{% block head_include %}
+<style>
+  :root{--gold:#ffd86b;--pink:#ff3d81;--cyan:#3ad7ff;--bg:#05050c;--panel:#0e0e1c}
+  body{background:var(--bg) !important}
+  .web-footer,.navbar{display:none !important}
+  #cz{position:relative;min-height:100vh;background:
+      radial-gradient(60% 50% at 20% 0%,rgba(255,61,129,.18),transparent 60%),
+      radial-gradient(60% 50% at 80% 10%,rgba(58,215,255,.16),transparent 60%),
+      radial-gradient(80% 80% at 50% 120%,rgba(255,216,107,.12),transparent 60%),
+      #05050c;color:#f3f0ff;font-family:system-ui,sans-serif}
+  .cz-bar{position:sticky;top:0;display:flex;align-items:center;gap:1rem;padding:.7rem 1.2rem;
+    background:rgba(8,8,20,.82);backdrop-filter:blur(8px);border-bottom:1px solid rgba(255,216,107,.2);z-index:10}
+  .cz-brand{font-weight:900;font-size:1.15rem;letter-spacing:.18em;
+    background:linear-gradient(90deg,var(--gold),var(--pink),var(--cyan));-webkit-background-clip:text;background-clip:text;color:transparent;cursor:pointer}
+  .cz-bar .sp{flex:1}
+  .cz-credits{font-variant-numeric:tabular-nums;font-weight:800;color:var(--gold);font-size:1.05rem}
+  .cz-credits small{color:#9a96bf;font-weight:600;font-size:.7rem;letter-spacing:.12em}
+  .cz-btn{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.16);color:#e9e6ff;
+    border-radius:999px;padding:.4rem .9rem;cursor:pointer;font-weight:700;font-size:.85rem;text-decoration:none}
+  .cz-btn:hover{border-color:var(--gold);color:var(--gold)}
+  .screen{display:none;max-width:1040px;margin:0 auto;padding:1.4rem 1rem 4rem}
+  .screen.on{display:block;animation:fade .4s}
+  @keyframes fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  .cz-hero{text-align:center;padding:2.4rem 1rem 1rem}
+  .cz-hero h1{font-size:clamp(2rem,6vw,3.6rem);font-weight:900;letter-spacing:.04em;margin:0;
+    background:linear-gradient(90deg,var(--gold),var(--pink),var(--cyan),var(--gold));background-size:300% 100%;
+    -webkit-background-clip:text;background-clip:text;color:transparent;animation:shine 6s linear infinite}
+  @keyframes shine{to{background-position:300% 0}}
+  .cz-hero p{color:#b8b3e0;margin:.5rem 0 0}
+  .cz-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:1.1rem;margin-top:1.6rem}
+  .tile{position:relative;border-radius:18px;padding:1.5rem 1.2rem;cursor:pointer;overflow:hidden;
+    border:1px solid rgba(255,255,255,.12);background:var(--panel);transition:transform .2s,box-shadow .2s,border-color .2s}
+  .tile:hover{transform:translateY(-6px);border-color:var(--gold);box-shadow:0 14px 40px rgba(255,61,129,.28)}
+  .tile .ico{font-size:3rem;line-height:1}
+  .tile h3{margin:.6rem 0 .2rem;font-size:1.2rem;font-weight:800}
+  .tile p{margin:0;color:#a9a4d6;font-size:.85rem;min-height:2.4rem}
+  .tile .play{margin-top:.8rem;display:inline-block;font-weight:800;letter-spacing:.1em;font-size:.8rem;color:var(--gold)}
+  .tile.t1{background:linear-gradient(150deg,#2a0a14,#0e0e1c)}
+  .tile.t2{background:linear-gradient(150deg,#0a1430,#0e0e1c)}
+  .tile.t3{background:linear-gradient(150deg,#1a0a2e,#0e0e1c)}
+  .tile.t4{background:linear-gradient(150deg,#2a1605,#0e0e1c)}
+  .tile.t5{background:linear-gradient(150deg,#06231c,#0e0e1c)}
+  .stage{background:rgba(10,10,22,.7);border:1px solid rgba(255,216,107,.18);border-radius:20px;padding:1.2rem;text-align:center;
+    box-shadow:0 10px 40px rgba(0,0,0,.5)}
+  .stage h2{margin:.2rem 0 1rem;font-weight:900;letter-spacing:.02em}
+  .frame{border:3px solid var(--gold);border-radius:16px;padding:8px;margin:0 auto;display:inline-block;
+    background:linear-gradient(180deg,#11112a,#0a0a18);box-shadow:0 0 30px rgba(255,216,107,.3),inset 0 0 22px rgba(255,216,107,.12)}
+  canvas{display:block;max-width:100%}
+  .ctl{display:flex;flex-wrap:wrap;gap:.6rem;justify-content:center;align-items:center;margin:1rem 0}
+  .ctl select,.ctl input{background:#15152e;color:#f3f0ff;border:1px solid #34335e;border-radius:8px;padding:.45rem .6rem;font-size:.9rem}
+  .ctl label{color:#b8b3e0;font-size:.85rem}
+  .spinbtn{background:linear-gradient(180deg,#ff5a98,#d81e63);color:#fff;border:none;border-radius:999px;
+    font-weight:900;font-size:1.05rem;letter-spacing:.06em;padding:.7rem 1.8rem;cursor:pointer;
+    box-shadow:0 6px 20px rgba(216,30,99,.5)}
+  .spinbtn:active{transform:translateY(1px)}
+  .gold{color:var(--gold)} .green{color:#37e0a0} .red{color:#ff6b6b}
+  .meterbar{display:flex;gap:.6rem;justify-content:center;flex-wrap:wrap;margin-bottom:1rem}
+  .mtile{flex:1 1 130px;max-width:200px;border-radius:12px;padding:.5rem .7rem;color:#fff;text-align:center}
+  .mtile small{display:block;font-size:.62rem;letter-spacing:.14em;opacity:.85}
+  .mtile b{font-size:1.15rem;font-variant-numeric:tabular-nums}
+  .m-MINI{background:linear-gradient(135deg,#8d6e63,#4e342e)}
+  .m-MINOR{background:linear-gradient(135deg,#90a4ae,#455a64)}
+  .m-MAJOR{background:linear-gradient(135deg,#ffb300,#e65100)}
+  .m-GRAND{background:linear-gradient(135deg,#7e57c2,#311b92);border:1px solid var(--gold)}
+  .stat{font-variant-numeric:tabular-nums;font-weight:700}
+  .note{color:#8c88b5;font-size:.82rem;margin-top:1rem}
+  #bigwin{display:none;position:fixed;inset:0;z-index:50;background:rgba(4,4,14,.8);
+    flex-direction:column;align-items:center;justify-content:center;cursor:pointer}
+  #bigwin .bt{font-size:clamp(2.4rem,8vw,5rem);font-weight:900;
+    background:linear-gradient(180deg,#ffe9a0,#ffb300);-webkit-background-clip:text;background-clip:text;color:transparent;
+    text-shadow:0 0 30px rgba(255,200,60,.5);animation:bp 1s ease-in-out infinite}
+  @keyframes bp{50%{transform:scale(1.07)}}
+  #bigwin .ba{font-size:clamp(1.8rem,6vw,3rem);font-weight:800;color:#fff;text-shadow:0 0 18px rgba(255,215,0,.8)}
+</style>
+{% endblock %}
+{% block page_content %}
+<div id="cz">
+  <div class="cz-bar">
+    <span class="cz-brand" onclick="location.hash=''">★ SPIN LAB CASINO ★</span>
+    <span class="sp"></span>
+    <span class="cz-credits"><span id="cz-credits">1000.00</span> <small>CREDITS</small></span>
+    <button class="cz-btn" id="cz-sound">&#128266;</button>
+    <button class="cz-btn" onclick="location.hash=''">&#8962; Lobby</button>
+    <a class="cz-btn" href="/spin-lab" title="the teaching lab">&#128202; The Lab</a>
+  </div>
+
+  <section class="screen on" id="s-lobby">
+    <div class="cz-hero">
+      <h1>SPIN LAB CASINO</h1>
+      <p>Virtual credits only &middot; no real money &middot; every game is an honest probability lab in disguise</p>
+    </div>
+    <div class="cz-grid">
+      <div class="tile t1" onclick="location.hash='loteria'">
+        <div class="ico">&#127948;</div><h3>La Loter&iacute;a</h3>
+        <p>The "free food" &mdash; win after win at 120%. Watch the jackpot you'll never reach.</p>
+        <span class="play">PLAY &#9656;</span></div>
+      <div class="tile t2" onclick="location.hash='slots'">
+        <div class="ico">&#127920;</div><h3>Deep Sea Slots</h3>
+        <p>6&times;4 &middot; 4096 ways &middot; wilds, free spins, a live progressive jackpot bank.</p>
+        <span class="play">PLAY &#9656;</span></div>
+      <div class="tile t3" onclick="location.hash='hook'">
+        <div class="ico">&#127907;</div><h3>The Hook</h3>
+        <p>90 seconds. Let the machine play <i>you</i> &mdash; then see what it really did.</p>
+        <span class="play">EXPERIENCE &#9656;</span></div>
+      <div class="tile t5" onclick="location.hash='ruin'">
+        <div class="ico">&#9904;</div><h3>Gambler's Ruin</h3>
+        <p>Set a bankroll &amp; a dream. Watch 1,500 lives end &mdash; green or red.</p>
+        <span class="play">RUN &#9656;</span></div>
+      <div class="tile t4" onclick="window.location='/spin-lab'">
+        <div class="ico">&#128202;</div><h3>The Lab</h3>
+        <p>Behind the scenes: heat bands, strategy charts, RTP math, the full toolkit.</p>
+        <span class="play">OPEN &#9656;</span></div>
+    </div>
+  </section>
+
+  <section class="screen" id="s-slots">
+    <div class="stage">
+      <h2>&#127754; Deep Sea Slots <small style="color:#9a96bf">4096 ways</small></h2>
+      <div class="meterbar" id="slot-meters"></div>
+      <div class="frame"><canvas id="slot-cv" width="840" height="430"></canvas></div>
+      <div class="ctl">
+        <select id="slot-profile"></select>
+        <select id="slot-stake"><option>0.2</option><option selected>1</option><option>5</option></select>
+        <select id="slot-auto"><option value="0">Auto: off</option><option value="25">&times;25</option><option value="100">&times;100</option></select>
+        <button class="spinbtn" id="slot-spin">SPIN</button>
+        <button class="cz-btn" id="slot-stop" style="display:none">&#9209; STOP</button>
+      </div>
+      <div>Win <span id="slot-win" class="stat gold">&mdash;</span> &middot; <span id="slot-detail" style="color:#9a96bf;font-size:.85rem"></span></div>
+      <p class="note">The reels are theatre. The result is fixed by the RNG the instant you press SPIN &mdash; the spin is just suspense over a decision already made.</p>
+    </div>
+  </section>
+
+  <section class="screen" id="s-loteria">
+    <div class="stage">
+      <h2>&#127948; La Loter&iacute;a del Enganche</h2>
+      <div id="lot-cantor" class="gold" style="min-height:1.4rem;font-weight:700;margin-bottom:.5rem">El cantor espera&hellip;</div>
+      <div class="frame"><canvas id="lot-cv" width="520" height="520"></canvas></div>
+      <div class="ctl">
+        <select id="lot-rtp">
+          <option value="1.30">RTP 130% &middot; launch bait</option>
+          <option value="1.20" selected>RTP 120% &middot; free food</option>
+          <option value="1.00">RTP 100% &middot; fair</option>
+          <option value="0.85">RTP 85% &middot; the gate closes</option>
+          <option value="0.75">RTP 75% &middot; floor</option>
+        </select>
+        <button class="spinbtn" id="lot-call">&iexcl;LLAMAR!</button>
+        <button class="cz-btn" id="lot-100">Auto &times;100</button>
+        <button class="cz-btn" id="lot-1000">Auto &times;1000</button>
+        <button class="cz-btn" id="lot-reset">&#8634;</button>
+      </div>
+      <div id="lot-stat" style="color:#9a96bf;font-size:.85rem"></div>
+      <p class="note">Win after win &mdash; because RTP is over 100%. But the progressive jackpots dangled above land essentially never. The feast is the bait; the prize is a horizon.</p>
+    </div>
+  </section>
+
+  <section class="screen" id="s-ruin">
+    <div class="stage">
+      <h2>&#9904; Gambler's Ruin &mdash; how it ends</h2>
+      <div class="ctl">
+        <label>bankroll <input id="ruin-bank" type="number" value="50" style="width:70px"></label>
+        <label>goal <input id="ruin-goal" type="number" value="100" style="width:80px"></label>
+        <select id="ruin-profile"></select>
+        <button class="spinbtn" id="ruin-run">RUN 1,500 LIVES</button>
+      </div>
+      <div id="ruin-stat" class="stat" style="margin:.4rem 0"></div>
+      <div class="frame" style="width:100%;box-sizing:border-box"><canvas id="ruin-cv" width="960" height="340"></canvas></div>
+      <p class="note">In a fair game your chance of reaching the goal is exactly bankroll &divide; goal. Any house edge bends every path down &mdash; and the longer anyone plays, the closer ruin gets to certain.</p>
+    </div>
+  </section>
+
+  <section class="screen" id="s-hook">
+    <div class="stage">
+      <h2>&#127907; The Hook</h2>
+      <p style="color:#b8b3e0">Let the machine play you for 90 seconds &mdash; then watch the curtain drop.</p>
+      <div id="hk-act" class="gold" style="letter-spacing:.3em;font-size:.8rem;text-transform:uppercase"></div>
+      <div id="hk-narr" style="font-size:clamp(1.1rem,3vw,1.6rem);font-weight:700;min-height:4rem;margin:1rem 0"></div>
+      <div id="hk-bal" class="stat" style="font-size:clamp(2rem,6vw,3.4rem)">100.00</div>
+      <div class="frame" style="margin:1rem auto;width:100%;box-sizing:border-box"><canvas id="hk-cv" width="640" height="120"></canvas></div>
+      <div id="hk-sub" style="color:#9a96bf;font-size:.85rem;min-height:1.2rem"></div>
+      <div class="ctl"><button class="spinbtn" id="hk-go">&#9654; BEGIN</button></div>
+      <div id="hk-reveal" style="display:none"></div>
+    </div>
+  </section>
+</div>
+
+<div id="bigwin"><div class="bt" id="bigwin-t"></div><div class="ba" id="bigwin-a"></div>
+  <div style="color:#9a96bf;margin-top:1rem">click to collect</div></div>
+
+<script>
+(function(){
+  var $=function(id){return document.getElementById(id);};
+  var credits=1000, muted=false;
+  function setCredits(){ $("cz-credits").textContent=credits.toFixed(2); }
+  var actx=null;
+  function tone(f,d,w,type,g,ef){ w=w||0;type=type||"square";g=g||0.05; if(muted)return;
+    try{ if(!actx)actx=new(window.AudioContext||window.webkitAudioContext)(); if(actx.state==="suspended")actx.resume();
+      var t0=actx.currentTime+w,o=actx.createOscillator(),gn=actx.createGain();
+      o.type=type;o.frequency.setValueAtTime(f,t0); if(ef)o.frequency.exponentialRampToValueAtTime(ef,t0+d);
+      gn.gain.setValueAtTime(g,t0);gn.gain.exponentialRampToValueAtTime(0.0001,t0+d);
+      o.connect(gn);gn.connect(actx.destination);o.start(t0);o.stop(t0+d+0.05);}catch(e){} }
+  var SFX={ spin:function(n){n=n||14;for(var i=0;i<n;i++)tone(160+(i%3)*25,0.04,i*0.06,"triangle",0.02);},
+    stop:function(i){tone(300+(i||0)*60,0.07,0,"square",0.05);},
+    win:function(m){m=m||1;var a=m>=20?[523,659,784,1047,1319]:m>=5?[523,659,784,1047]:[523,784];a.forEach(function(f,i){tone(f,0.16,i*0.1,"square",0.05);});},
+    lose:function(){tone(220,0.12,0,"triangle",0.02,180);},
+    fan:function(){[392,494,587,784,587,784,988].forEach(function(f,i){tone(f,0.15,i*0.09,"sawtooth",0.05);});} };
+  $("cz-sound").onclick=function(){muted=!muted;$("cz-sound").textContent=muted?"🔇":"🔊";};
+
+  function whenFrappe(fn){ (window.frappe&&frappe.call&&(frappe.csrf_token||document.readyState==="complete"))?fn():setTimeout(function(){whenFrappe(fn);},100); }
+  function call(m,a){ return new Promise(function(r){frappe.call({method:"spin_lab.api.slot_engine."+m,args:a||{},callback:function(x){r(x.message);},error:function(){r(null);}});}); }
+
+  function bigWin(tier,amount){ var b=$("bigwin"); $("bigwin-t").textContent="✨ "+tier+" ✨"; $("bigwin-a").textContent="";
+    b.style.display="flex"; SFX.fan(); SFX.win(amount); var dur=2200,t0=performance.now();
+    (function step(now){ var t=Math.min(1,(now-t0)/dur); $("bigwin-a").textContent=(amount*(1-Math.pow(1-t,3))).toFixed(2);
+      if(t<1&&b.style.display!=="none")requestAnimationFrame(step); })(t0);
+    var hide=function(){b.style.display="none";b.onclick=null;}; b.onclick=hide; setTimeout(hide,amount>=50?5000:3000); }
+
+  var screens={lobby:"s-lobby",slots:"s-slots",loteria:"s-loteria",ruin:"s-ruin",hook:"s-hook"};
+  function route(){ var h=(location.hash||"#lobby").slice(1)||"lobby"; Object.keys(screens).forEach(function(k){$(screens[k]).classList.remove("on");});
+    $(screens[h]||"s-lobby").classList.add("on"); window.scrollTo(0,0);
+    if(h==="slots")initSlots(); if(h==="loteria")initLot(); if(h==="ruin")initRuin(); }
+  window.addEventListener("hashchange",route);
+
+  var profilesLoaded=false;
+  function loadProfiles(){ if(profilesLoaded)return; profilesLoaded=true;
+    call("list_profiles_api").then(function(list){ if(!list)return;
+      var opt=function(def){return list.map(function(p){return '<option value="'+p.key+'"'+(p.key===def?" selected":"")+'>'+(p.label||p.key)+'</option>';}).join("");};
+      $("slot-profile").innerHTML=opt("fair"); $("ruin-profile").innerHTML=opt("casino_edge"); }); }
+
+  var SI={CRAB:"🦀",OCTOPUS:"🐙",SHARK:"🦈",KRAKEN:"🐉",PEARL:"🦪",WILD:"🃏",TEN:"10",JACK:"J",QUEEN:"Q",KING:"K",ACE:"A"};
+  var slotInit=false, slotAuto=0, slotBusy=false;
+  function initSlots(){ loadProfiles(); if(slotInit)return; slotInit=true;
+    drawSlots(null,new Set()); loadMeters();
+    $("slot-spin").onclick=function(){slotSpin(false);};
+    $("slot-stop").onclick=function(){slotAuto=0;$("slot-stop").style.display="none";};
+    $("slot-auto").onchange=function(e){var n=+e.target.value; if(n>0){slotAuto=n;$("slot-stop").style.display="";slotSpin(n>50);}}; }
+  function loadMeters(){ call("meter_analysis_api",{profile:$("slot-profile").value||"fair"}).then(function(ms){ if(!ms)return;
+    $("slot-meters").innerHTML=ms.map(function(m){return '<div class="mtile m-'+m.name+'"><small>'+m.name+'</small><b>'+(m.value||0).toFixed(0)+'</b></div>';}).join(""); }); }
+  function drawSlots(grid,winset){ var c=$("slot-cv").getContext("2d"),W=840,H=430,CW=132,OX=18,OY=10;
+    c.clearRect(0,0,W,H);
+    for(var r=0;r<6;r++){ var rows=grid?grid[r].length:4, ch=Math.min(100,(H-2*OY)/rows);
+      for(var p=0;p<rows;p++){ var x=OX+r*CW,y=OY+p*ch,sym=grid?grid[r][p]:null,won=winset.has(r+","+p);
+        c.fillStyle=won?"#3d3415":"#141830"; c.strokeStyle=won?"#ffd86b":"#2a3050"; c.lineWidth=won?2.5:1.5;
+        if(won){c.shadowColor="#ffd700";c.shadowBlur=16;}
+        c.beginPath(); c.roundRect?c.roundRect(x,y,CW-10,ch-8,9):c.rect(x,y,CW-10,ch-8); c.fill();c.stroke();c.shadowBlur=0;
+        if(sym){var ic=SI[sym]||sym; c.font=/^[A-Z0-9]+$/.test(ic)?"bold "+Math.min(30,ch-30)+"px Georgia":Math.min(40,ch-24)+"px system-ui";
+          c.fillStyle=sym==="PEARL"?"#ffd700":sym==="WILD"?"#c792ea":"#e8e8f0"; c.textAlign="center";c.textBaseline="middle";
+          c.fillText(ic,x+(CW-10)/2,y+(ch-8)/2);} } } }
+  function winCells(grid,wins){ var s=new Set(); (wins||[]).forEach(function(w){for(var r=0;r<w.count;r++)grid[r].forEach(function(sy,p){if(sy===w.symbol||sy==="WILD")s.add(r+","+p);});});
+    grid.forEach(function(col,r){col.forEach(function(sy,p){if(sy==="PEARL")s.add(r+","+p);});}); return s; }
+  function slotSpin(quick){ if(slotBusy)return; slotBusy=true;
+    call("video_spin",{theme:"Deep Sea 4096",stake:+$("slot-stake").value,profile:$("slot-profile").value||"fair"}).then(function(res){
+      if(!res){slotBusy=false;return;}
+      var finish=function(){ var ws=winCells(res.grid,res.wins); drawSlots(res.grid,ws);
+        credits+=res.net; setCredits();
+        $("slot-win").textContent=res.total_win.toFixed(2); $("slot-win").className="stat "+(res.total_win>0?"green":"gold");
+        var parts=(res.wins||[]).map(function(w){return (SI[w.symbol]||w.symbol)+"×"+w.count;});
+        if(res.ways&&res.ways!==4096)parts.unshift("【"+res.ways.toLocaleString()+" ways】");
+        if(res.free_spins)parts.push("🎁 FREE SPINS");
+        if(res.respins_used)parts.push("⭐ "+res.respins_used+" respins");
+        $("slot-detail").textContent=parts.join(" · ");
+        var jw=res.progressives&&res.progressives.jackpot_wins||[];
+        loadMeters();
+        var mult=res.total_win/res.stake;
+        if(jw.length){ bigWin("💰 "+jw[0].meter+" JACKPOT",jw[0].amount); }
+        else if(mult>=10){ bigWin(mult>=100?"LEGENDARY WIN":mult>=50?"EPIC WIN":mult>=25?"MEGA WIN":"BIG WIN",res.total_win); }
+        else if(res.total_win>res.stake)SFX.win(mult); else if(res.free_spins||res.respins_used)SFX.fan(); else SFX.lose();
+        slotBusy=false;
+        if(slotAuto>0){slotAuto--; if(slotAuto<=0||jw.length){slotAuto=0;$("slot-stop").style.display="none";}
+          else setTimeout(function(){slotSpin(slotAuto>50);},quick?180:560);} };
+      if(quick){finish();} else { SFX.spin(); [0,1,2,3,4,5].forEach(function(i){setTimeout(function(){SFX.stop(i);},300+i*120);});
+        var pool=Object.keys(SI),start=performance.now();
+        (function anim(now){ var t=now-start, done=true, g=[];
+          for(var r=0;r<6;r++){ var st=380+r*150; if(t<st){done=false;g.push(Array.from({length:res.grid[r].length},function(){return pool[Math.floor(Math.random()*pool.length)];}));} else g.push(res.grid[r]); }
+          drawSlots(g,new Set()); done?finish():requestAnimationFrame(anim); })(start); } }); }
+
+  var lotCards=[],lotTiers=[],lotScale=1,lotBase=1,lotInit=false,lotBal=100,lotDraws=0,lotWins=0,lotRunning=false;
+  function initLot(){ if(lotInit)return; lotInit=true;
+    call("loteria_config").then(function(cfg){ if(!cfg)return; lotCards=cfg.cards;lotTiers=cfg.tiers;lotBase=cfg.base_rtp_unscaled;
+      setLotRtp(+$("lot-rtp").value); drawLot([],null); });
+    $("lot-rtp").onchange=function(e){lotRunning=false;setLotRtp(+e.target.value);};
+    $("lot-call").onclick=function(){lotDraw();};
+    $("lot-100").onclick=function(){lotAutoRun(100);}; $("lot-1000").onclick=function(){lotAutoRun(1000);};
+    $("lot-reset").onclick=function(){lotRunning=false;lotBal=100;lotDraws=0;lotWins=0;$("lot-stat").textContent="";$("lot-cantor").textContent="El cantor espera…";drawLot([],null);}; }
+  function setLotRtp(v){ lotScale=v/lotBase; var up=v>=1;
+    $("lot-cantor").innerHTML=up?"RTP "+Math.round(v*100)+"% — keep feasting on your "+lotBal.toFixed(2)+".":"RTP "+Math.round(v*100)+"% — same cards. Now watch your "+lotBal.toFixed(2)+" bleed away.";
+    $("lot-cantor").className=up?"green":"red"; }
+  function drawLot(marked,tier){ var c=$("lot-cv").getContext("2d"),pad=8,S=(520-pad*5)/4,ms=new Set(marked);
+    c.clearRect(0,0,520,520);
+    for(var i=0;i<16;i++){ var r=i/4|0,col=i%4,x=pad+col*(S+pad),y=pad+r*(S+pad),on=ms.has(i);
+      c.fillStyle=on?"#3a1d0a":"#220a10"; c.strokeStyle=on?"#ffd86b":"#6a3a20"; c.lineWidth=on?3:1.5;
+      if(on){c.shadowColor="#ffb33c";c.shadowBlur=15;}
+      c.beginPath();c.roundRect?c.roundRect(x,y,S,S,10):c.rect(x,y,S,S);c.fill();c.stroke();c.shadowBlur=0;
+      c.textAlign="center";c.textBaseline="middle";c.font="42px system-ui";
+      c.fillText(lotCards[i]?lotCards[i].emoji:"?",x+S/2,y+S/2-6);
+      c.font="9px system-ui";c.fillStyle=on?"#ffe9c7":"#8a6a50";c.fillText(lotCards[i]?lotCards[i].name:"",x+S/2,y+S-11);
+      if(on){c.fillStyle="rgba(192,57,43,.85)";c.beginPath();c.ellipse(x+S-15,y+15,6,4.5,0.5,0,7);c.fill();} } }
+  function lotLocal(){ var n=6+(Math.random()*7|0),idx=[],mk=[];for(var z=0;z<16;z++)idx.push(z);
+    for(var k=0;k<n;k++)mk.push(idx.splice(Math.random()*idx.length|0,1)[0]);
+    var roll=Math.random(),cum=0,win=0,tier=null; for(var ti=0;ti<lotTiers.length;ti++){var t=lotTiers[ti];cum+=t.p;if(roll<cum){win=t.pay*lotScale;tier=t.label;break;}}
+    return{marked:mk.sort(function(a,b){return a-b;}),tier:tier,win:win}; }
+  function lotApply(r){ lotBal+=r.win-1;lotDraws++; if(r.win>0)lotWins++;
+    credits+=r.win-1; setCredits();
+    $("lot-cantor").innerHTML=r.tier?"¡"+r.tier+"! +"+r.win.toFixed(2)+" 🎉":"Se fue limpia…"; $("lot-cantor").className=r.win>=1?"green":"";
+    $("lot-stat").textContent="balance "+lotBal.toFixed(2)+" · draws "+lotDraws+" · wins "+lotWins; }
+  function lotDraw(){ if(lotRunning)return; var r=lotLocal(); drawLot(r.marked,r.tier); r.win>0?SFX.win(Math.max(1,r.win)):SFX.lose(); lotApply(r); }
+  function lotAutoRun(n){ if(lotRunning)return; lotRunning=true;
+    (function loop(i){ if(i>=n||!lotRunning){lotRunning=false;$("lot-cantor").innerHTML=n+" draws · you're "+(lotBal>=100?"UP":"DOWN")+" "+(lotBal-100).toFixed(2);return;}
+      var r=lotLocal();
+      if(i%10===0||i===n-1){drawLot(r.marked,r.tier);lotApply(r);setTimeout(function(){loop(i+1);},n>200?6:35);}
+      else{lotApply(r);loop(i+1);} })(0); }
+
+  var ruinInit=false;
+  function initRuin(){ loadProfiles(); if(ruinInit)return; ruinInit=true;
+    $("ruin-run").onclick=function(){ $("ruin-stat").textContent="running 1,500 lives…";
+      call("gamblers_ruin",{theme:"Classic Fruits",bankroll:+$("ruin-bank").value,goal:+$("ruin-goal").value,profile:$("ruin-profile").value||"casino_edge",sessions:1500}).then(function(d){ if(!d)return;
+        $("ruin-stat").innerHTML='<span class="green">cash out '+(d.p_reach_goal*100).toFixed(1)+'%</span> · <span class="red">ruin '+(d.p_ruin*100).toFixed(1)+'%</span> · fair theory '+(d.fair_p_reach_goal*100).toFixed(1)+'% · median '+d.median_spins+' spins';
+        drawRuin(d); }); }; }
+  function drawRuin(d){ var c=$("ruin-cv").getContext("2d"),W=960,H=340,pad=46,goal=d.goal,paths=d.sample_paths||[];
+    c.clearRect(0,0,W,H); var X=function(i,n){return pad+(i/Math.max(1,n-1))*(W-pad-12);},Y=function(v){return H-26-(Math.max(0,Math.min(goal,v))/goal)*(H-40);};
+    c.strokeStyle="rgba(255,255,255,.18)";c.setLineDash([5,4]);c.lineWidth=1;
+    [[goal,"goal "+goal],[d.bankroll,"start "+d.bankroll],[0,"0"]].forEach(function(a){c.beginPath();c.moveTo(pad,Y(a[0]));c.lineTo(W-12,Y(a[0]));c.stroke();c.fillStyle="#9a96bf";c.font="11px system-ui";c.textAlign="left";c.fillText(a[1],4,Y(a[0])+4);});
+    c.setLineDash([]);
+    paths.forEach(function(p){ c.strokeStyle=p.outcome==="goal"?"rgba(55,224,160,.75)":p.outcome==="bust"?"rgba(255,107,107,.6)":"rgba(150,150,150,.5)"; c.lineWidth=1.3;c.beginPath();
+      p.path.forEach(function(v,i){i?c.lineTo(X(i,p.path.length),Y(v)):c.moveTo(X(i,p.path.length),Y(v));}); c.stroke(); }); }
+
+  var hkRun=false;
+  function hkSpark(hist,peak){ var c=$("hk-cv").getContext("2d"),W=640,H=120; c.clearRect(0,0,W,H);
+    if(hist.length<2)return; var lo=Math.min.apply(null,[0].concat(hist)),hi=Math.max.apply(null,[peak,1].concat(hist)),X=function(i){return (i/(hist.length-1))*W;},Y=function(v){return H-6-((v-lo)/(hi-lo))*(H-12);};
+    c.strokeStyle="rgba(255,255,255,.18)";c.setLineDash([4,4]);c.beginPath();c.moveTo(0,Y(100));c.lineTo(W,Y(100));c.stroke();c.setLineDash([]);
+    for(var i=1;i<hist.length;i++){c.strokeStyle=hist[i]>=100?"#37e0a0":"#ff6b6b";c.lineWidth=2.5;c.beginPath();c.moveTo(X(i-1),Y(hist[i-1]));c.lineTo(X(i),Y(hist[i]));c.stroke();} }
+  $("hk-go").onclick=function(){ if(hkRun)return; whenFrappe(runHook); };
+  function runHook(){ hkRun=true; $("hk-reveal").style.display="none"; $("hk-go").style.display="none";
+    var bal=100,peak=100,spins=0,wins=0,ldw=0,hist=[100]; var sleep=function(ms){return new Promise(function(r){setTimeout(r,ms);});};
+    var narr=function(act,text,hold){hold=hold||2600;$("hk-act").textContent=act;var n=$("hk-narr");n.style.opacity=0;return sleep(220).then(function(){n.textContent=text;n.style.opacity=1;return sleep(hold);});};
+    function act(profile,n,gap){ var p=Promise.resolve();
+      for(var i=0;i<n;i++){ p=p.then(function(){ return call("video_spin",{theme:"Classic Fruits 4096",stake:1,profile:profile}).then(function(r){ if(!r)return sleep(gap);
+        bal+=r.net;spins++; if(r.total_win>0)wins++; if(r.total_win>0&&r.total_win<=r.stake)ldw++; peak=Math.max(peak,bal);hist.push(bal);
+        $("hk-bal").textContent=bal.toFixed(2); $("hk-bal").className="stat "+(bal>=100?"green":"red"); hkSpark(hist,peak);
+        if(r.total_win>r.stake)SFX.win(Math.max(1,r.total_win)); else SFX.lose(); return sleep(gap); }); }); }
+      return p; }
+    $("hk-sub").textContent="RTP 105% — the casino is paying YOU to be here";
+    narr("Act 1 · The Welcome","Welcome! First spins on the house — and look, you're already up. 🎉")
+    .then(function(){return act("player_edge",12,330);})
+    .then(function(){return narr("Act 1 · The Welcome","Generous, right? You're winning. You'll be back tomorrow… and you tell your friends.",2600);})
+    .then(function(){$("hk-sub").textContent="RTP just dropped to 85% — nothing on screen changed.";return narr("Act 2 · The Walls","You're a regular now. Same lights, same sounds. Nothing looks different…",2400);})
+    .then(function(){return act("loose_85",20,290);})
+    .then(function(){return narr("Act 2 · The Walls","Still feels like winning. But the wall is up, the slope is down — you just can't feel it.",2700);})
+    .then(function(){$("hk-sub").textContent="The edge is just… running now.";return narr("Act 3 · The Gate","\"One more. I'll win it back.\" Watch where the line goes.",2400);})
+    .then(function(){return act("loose_85",16,230);})
+    .then(function(){SFX.lose();return narr("Act 3 · The Gate","And there it is.",1500);})
+    .then(function(){ var ldwPct=wins?Math.round(100*ldw/wins):0;
+      $("hk-reveal").style.display="block"; $("hk-reveal").innerHTML=
+        '<h2 class="red">This was never a game.</h2>'+
+        '<p style="color:#e6e6f0;line-height:1.6">You started with <b class="gold">100</b>, peaked at <b class="gold">'+peak.toFixed(2)+'</b>, ended at <b class="gold">'+bal.toFixed(2)+'</b> in '+spins+' spins.</p>'+
+        '<p style="color:#e6e6f0;line-height:1.6">The machine lit up as a <b>win '+wins+'</b> times. <b class="gold">'+ldw+' of those — '+ldwPct+'%</b> paid back <i>less than you bet</i>. Your brain logged wins; the math logged losses.</p>'+
+        '<p style="color:#e6e6f0;line-height:1.6">The payout quietly dropped from 105% to 85%. Same lights. Only the arithmetic moved — against you. Keep going and ruin → ~99%.</p>'+
+        '<div style="font-size:1.5rem;font-weight:900;margin:1rem 0" class="gold">🎰 It is not a game. It is a designed extraction.</div>'+
+        '<p style="color:#b8b3e0">The only winning move was to stop — and that door was open the whole time.</p>'+
+        '<button class="cz-btn" onclick="location.hash=\'ruin\'">See the math →</button>';
+      $("hk-go").style.display=""; hkRun=false; }); }
+
+  whenFrappe(function(){ setCredits(); route(); });
+})();
+</script>
+{% endblock %}
