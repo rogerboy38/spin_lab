@@ -277,8 +277,9 @@
       function fanfare(){[523,659,784,1047].forEach(function(f,i){tone(f,0.16,i*0.1,"square",0.05);});}
       if(rHonest){
         if(net>0){ fanfare(); $("rl-result").innerHTML=label+' &mdash; <span style="color:#37e0a0">NET +'+net.toFixed(0)+'</span>'; }
+        else if(won>0 && net===0){ tone(440,0.2,0,"square",0.04); $("rl-result").innerHTML=label+' &mdash; <span style="color:#ffd86b">won '+won.toFixed(0)+' = staked '+staked.toFixed(0)+' &rarr; NET 0 &middot; PUSH (broke even)</span>'; }
         else if(won>0){ tone(200,0.3,0,"sawtooth",0.05); $("rl-result").innerHTML=label+' &mdash; <span style="color:#ff6b6b">won '+won.toFixed(0)+' but staked '+staked.toFixed(0)+' &rarr; NET '+net.toFixed(0)+' &middot; LDW</span>'; }
-        else if(staked>0){ tone(200,0.3,0,"sawtooth",0.05); $("rl-result").innerHTML=label+' &mdash; <span style="color:#ff6b6b">NET '+net.toFixed(0)+'</span>'; }
+        else if(staked>0){ tone(200,0.3,0,"sawtooth",0.05); $("rl-result").innerHTML=label+' &mdash; <span style="color:#ff6b6b">NET '+net.toFixed(0)+' &middot; LOSS</span>'; }
         else $("rl-result").textContent=label;
       } else {
         if(won>0){ fanfare(); $("rl-result").innerHTML=label+' &mdash; <span style="color:#37e0a0">YOU WON +'+won.toFixed(0)+' &#127881;</span>'; }
