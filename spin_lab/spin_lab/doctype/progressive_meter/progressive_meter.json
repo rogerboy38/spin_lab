@@ -1,0 +1,28 @@
+{
+ "doctype": "DocType", "name": "Progressive Meter", "module": "Spin Lab",
+ "engine": "InnoDB", "autoname": "field:meter_name",
+ "field_order": ["meter_name", "meter_type", "enabled", "current_value", "seed",
+                 "contribution_rate", "hit_probability", "must_hit_max",
+                 "trigger_threshold", "hits", "total_contributed", "last_hit_value"],
+ "fields": [
+  {"fieldname": "meter_name", "fieldtype": "Data", "label": "Meter Name", "reqd": 1, "unique": 1},
+  {"fieldname": "meter_type", "fieldtype": "Select", "label": "Type",
+   "options": "Standalone\nLinked\nWide Area\nMust-Hit-By", "reqd": 1},
+  {"fieldname": "enabled", "fieldtype": "Check", "label": "Enabled", "default": "1"},
+  {"fieldname": "current_value", "fieldtype": "Float", "label": "Current Value (virtual points)", "precision": "4"},
+  {"fieldname": "seed", "fieldtype": "Float", "label": "Seed (reset value)", "reqd": 1},
+  {"fieldname": "contribution_rate", "fieldtype": "Float", "label": "Contribution Rate c (fraction of bet)", "precision": "6"},
+  {"fieldname": "hit_probability", "fieldtype": "Float", "label": "Hit Probability p (per unit bet; 0 for Must-Hit-By)", "precision": "9"},
+  {"fieldname": "must_hit_max", "fieldtype": "Float", "label": "Must-Hit-By Maximum", "depends_on": "eval:doc.meter_type=='Must-Hit-By'"},
+  {"fieldname": "trigger_threshold", "fieldtype": "Float", "label": "Hidden Trigger (auto)", "read_only": 1, "hidden": 1},
+  {"fieldname": "hits", "fieldtype": "Int", "label": "Times Hit", "read_only": 1},
+  {"fieldname": "total_contributed", "fieldtype": "Float", "label": "Total Contributed", "read_only": 1, "precision": "4"},
+  {"fieldname": "last_hit_value", "fieldtype": "Float", "label": "Last Hit Value", "read_only": 1, "precision": "4"}
+ ],
+ "permissions": [
+  {"role": "System Manager", "read": 1, "write": 1, "create": 1, "delete": 1},
+  {"role": "All", "read": 1}
+ ],
+ "owner": "Administrator",
+ "modified": "2026-06-12 00:00:00.000000", "sort_field": "modified", "sort_order": "DESC"
+}

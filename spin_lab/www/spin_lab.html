@@ -15,6 +15,23 @@
   canvas{display:block;margin:0 auto;max-width:100%}
   .sl-btn{cursor:pointer}
   h1,h3{text-align:center}
+  /* ── progressive jackpot bank ── */
+  .pj-bank{display:flex;gap:.75rem;justify-content:center;flex-wrap:wrap;margin:.75rem 0}
+  .pj-tile{flex:1 1 150px;max-width:210px;border-radius:14px;padding:.7rem 1rem;text-align:center;
+           color:#fff;box-shadow:0 3px 10px rgba(0,0,0,.18);position:relative;overflow:hidden}
+  .pj-tile small{display:block;font-size:.7rem;letter-spacing:.12em;opacity:.85}
+  .pj-tile .pj-val{font-size:1.45rem;font-weight:800;font-variant-numeric:tabular-nums;
+                   text-shadow:0 1px 3px rgba(0,0,0,.35)}
+  .pj-tile .pj-type{font-size:.65rem;opacity:.8}
+  .pj-mini {background:linear-gradient(135deg,#8d6e63,#5d4037)}
+  .pj-minor{background:linear-gradient(135deg,#90a4ae,#546e7a)}
+  .pj-major{background:linear-gradient(135deg,#ffb300,#ef6c00)}
+  .pj-grand{background:linear-gradient(135deg,#311b92,#1a1a2e);border:2px solid #f5c518}
+  .pj-hit{animation:pjflash .5s ease-in-out 6}
+  @keyframes pjflash{50%{filter:brightness(1.9)}}
+  .pj-banner{display:none;text-align:center;font-size:1.3rem;font-weight:800;color:#b8860b;
+             padding:.5rem;border:2px dashed #f5c518;border-radius:12px;margin:.5rem auto;max-width:640px;
+             background:#fffbe8}
 </style>
 
 <div class="sl-wrap">
@@ -77,6 +94,21 @@
     </div>
     <canvas id="sl-chart" width="900" height="300"></canvas>
     <div id="sl-legend" class="sl-row"></div>
+  </div>
+
+  <div class="sl-card" style="background:linear-gradient(180deg,#fffdf5,#fff)">
+    <h3>💎 Progressive Jackpot Bank <small style="color:#888">(shared by every player of this site — fed by every video spin)</small></h3>
+    <div class="pj-bank" id="pj-bank"></div>
+    <div class="pj-banner" id="pj-banner"></div>
+    <div class="sl-row" style="justify-content:center">
+      <table class="sl-table" style="max-width:880px;font-size:.82rem"><thead>
+        <tr><th>Meter</th><th>Type</th><th>J (now)</th><th>c</th><th>Odds (p)</th>
+            <th>Jackpot EV now</th><th>RTP(J) total</th><th>Break-even J*</th><th>Progress</th><th>Hits · last</th></tr>
+      </thead><tbody id="pj-table"></tbody></table>
+    </div>
+    <p class="sl-note">RTP(J) = base − c + p·J/bet · the meter raises the <b>prize</b>, never the
+      <b>probability</b> (RNG types are never "due") · Must-Hit-By is the exception: its hidden
+      trigger makes EV genuinely rise toward the maximum. Contribution c is carved out of your bet.</p>
   </div>
 
   <div class="sl-card">
@@ -556,6 +588,7 @@ window.SLAudio = (function () {
           $("vs-fs").textContent =
             `🚶 WALKING WILDS — ${res.respins_used} respin(s) → chain won ${res.base_win.toFixed(2)}`;
         }
+        handleProgressives(res.progressives);
         if (res.free_spins && res.free_spins.sticky_wilds != null) {
           $("vs-fs").textContent += `  📌 ${res.free_spins.sticky_wilds} sticky wild(s) locked`;
         }
@@ -584,10 +617,52 @@ window.SLAudio = (function () {
     });
   });
 
+  const PJ_CLASS = { MINI: "pj-mini", MINOR: "pj-minor", MAJOR: "pj-major", GRAND: "pj-grand" };
+
+  function renderProgressives(meters) {
+    $("pj-bank").innerHTML = meters.map((m) =>
+      `<div class="pj-tile ${PJ_CLASS[m.name] || "pj-minor"}" id="pj-${m.name}">
+         <small>${m.name}</small>
+         <span class="pj-val">${m.value.toFixed(2)}</span>
+         <span class="pj-type">${m.type}</span>
+       </div>`).join("");
+    $("pj-table").innerHTML = meters.map((m) => {
+      const isMHB = m.type === "Must-Hit-By";
+      return `<tr><td><b>${m.name}</b></td><td>${m.type}</td>
+        <td>${m.value.toFixed(2)}</td><td>${(m.c * 100).toFixed(1)}%</td>
+        <td>${isMHB ? "hidden trigger" : m.odds}</td>
+        <td>${isMHB ? "—" : m.jackpot_ev_pct.toFixed(3) + "%"}</td>
+        <td>${isMHB ? "—" : m.rtp_at_J_pct.toFixed(2) + "%"}</td>
+        <td>${isMHB ? "max " + m.must_hit_max : m.break_even_J.toLocaleString()}</td>
+        <td>${isMHB ? m.progress_pct + "% to max" : m.progress_to_breakeven_pct + "% of J*"}</td>
+        <td>${m.hits}${m.last_hit ? " · " + m.last_hit.toFixed(0) : ""}</td></tr>`;
+    }).join("");
+  }
+
+  function loadProgressives() {
+    vcall("meter_analysis_api", { profile: $("vs-profile").value }, renderProgressives);
+  }
+
+  function handleProgressives(prog) {
+    if (!prog) return;
+    renderProgressives(prog.meters);
+    (prog.jackpot_wins || []).forEach((w) => {
+      const tile = $(`pj-${w.meter}`);
+      if (tile) tile.classList.add("pj-hit");
+      const b = $("pj-banner");
+      b.style.display = "block";
+      b.textContent = `🎰 ${w.meter} JACKPOT HIT — ${w.amount.toFixed(2)} points! (${w.type})`;
+      SLAudio.win(100);
+      setTimeout(() => { b.style.display = "none"; }, 8000);
+    });
+  }
+
   $("vs-profile").addEventListener("change", loadRtp);
+  $("vs-profile").addEventListener("change", loadProgressives);
   $("vs-theme").addEventListener("change", () => { drawGrid(null); loadRtp(); });
   drawGrid(null);
   whenFrappe(loadThemes);
+  whenFrappe(loadProgressives);
 })();
 </script>
 

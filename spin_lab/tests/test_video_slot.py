@@ -280,3 +280,29 @@ class TestV3Features(unittest.TestCase):
             for profile, target in SCORING_PROFILES.items():
                 self.assertAlmostEqual(base * video_profile_scale(t, profile), target,
                                        places=9, msg=f"{name}/{profile}")
+
+
+class TestProgressiveMath(unittest.TestCase):
+    def test_break_even_and_rtp(self):
+        from spin_lab.engine.progressive_math import break_even_meter, rtp_at
+        # fair base, c=2%, p=1/200k -> J* = 4000; RTP at J* must be exactly 1
+        j = break_even_meter(1.0, 0.02, 1 / 200_000)
+        self.assertAlmostEqual(j, 4000.0, places=6)
+        self.assertAlmostEqual(rtp_at(1.0, 0.02, 1 / 200_000, j), 1.0, places=9)
+        # casino_edge base needs a bigger meter
+        self.assertGreater(break_even_meter(0.95, 0.02, 1 / 200_000), j)
+
+    def test_average_jackpot_equals_breakeven_for_fair(self):
+        from spin_lab.engine.progressive_math import average_jackpot, break_even_meter
+        # for base=1.0: J* = c/p and avg = seed + c/p -> avg > J* by seed
+        c, p, seed = 0.015, 1 / 200_000, 1000.0
+        self.assertAlmostEqual(average_jackpot(seed, c, p) - seed,
+                               break_even_meter(1.0, c, p), places=6)
+
+    def test_mhb_trigger_in_range(self):
+        from spin_lab.engine.progressive_math import draw_mhb_trigger, mhb_expected_hit
+        rng = make_rng(3)
+        for _ in range(200):
+            t = draw_mhb_trigger(5000, 10000, rng)
+            self.assertTrue(5000 <= t <= 10000)
+        self.assertEqual(mhb_expected_hit(5000, 10000), 7500.0)

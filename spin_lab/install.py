@@ -17,6 +17,7 @@ def after_migrate():
 def seed_all():
     seed_classic_themes()
     seed_video_themes()
+    seed_progressive_meters()
 
 
 def seed_classic_themes():
@@ -72,4 +73,31 @@ def _seed_one_video_theme(cfg):
             "free_spins": cfg["free_spins"].get(n, 0),
         })
     doc.insert(ignore_permissions=True)
+    frappe.db.commit()
+
+
+DEMO_METERS = [
+    # name, type, seed, c, p (per unit bet), must_hit_max
+    ("MINI", "Standalone", 20.0, 0.005, 1 / 2_000, None),
+    ("MINOR", "Linked", 100.0, 0.01, 1 / 20_000, None),
+    ("MAJOR", "Wide Area", 1_000.0, 0.015, 1 / 200_000, None),
+    ("GRAND", "Must-Hit-By", 5_000.0, 0.02, 0, 10_000.0),
+]
+
+
+def seed_progressive_meters():
+    if not frappe.db.exists("DocType", "Progressive Meter"):
+        return
+    for name, mtype, seed, c, p, mhb in DEMO_METERS:
+        if frappe.db.exists("Progressive Meter", name):
+            continue
+        doc = frappe.new_doc("Progressive Meter")
+        doc.meter_name = name
+        doc.meter_type = mtype
+        doc.seed = seed
+        doc.contribution_rate = c
+        doc.hit_probability = p
+        doc.must_hit_max = mhb
+        doc.enabled = 1
+        doc.insert(ignore_permissions=True)
     frappe.db.commit()
