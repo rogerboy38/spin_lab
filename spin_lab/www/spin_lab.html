@@ -349,6 +349,23 @@ window.SLAudio = (function () {
       `<span><span class="sl-heat-chip" style="background:${COLORS[l] || "#555"}"></span>${l}</span>`).join("");
   }
 
+  function drawLdwOverlay(path) {
+    // cumulative LDW count on its own scale (right side), dashed amber
+    if (!path || !path.length) return;
+    const W = 900, H = 300, pad = 45;
+    const maxV = Math.max(...path, 1);
+    const X = (i) => pad + (i / (path.length - 1)) * (W - pad - 10);
+    const Y = (v) => H - pad - (v / maxV) * (H - pad - 15);
+    chart.strokeStyle = "#b06a00"; chart.lineWidth = 2; chart.setLineDash([6, 4]);
+    chart.beginPath();
+    path.forEach((v, i) => i ? chart.lineTo(X(i), Y(v)) : chart.moveTo(X(i), Y(v)));
+    chart.stroke(); chart.setLineDash([]);
+    chart.fillStyle = "#b06a00"; chart.font = "12px system-ui"; chart.textAlign = "right";
+    chart.fillText(`${maxV} LDWs`, W - 14, Y(maxV) + 14);
+    $("sl-legend").innerHTML +=
+      ` <span><span class="sl-heat-chip" style="background:#b06a00"></span>cumulative LDWs (own scale)</span>`;
+  }
+
   $("sl-simulate").addEventListener("click", () => {
     $("sl-sim-stats").textContent = "running…";
     call("simulate", {
@@ -359,6 +376,7 @@ window.SLAudio = (function () {
         `empirical RTP ${res.empirical_rtp} (target ${res.target_rtp}) · hit rate ${res.hit_rate}` +
         ` · LDW rate ${res.ldw_rate} · final ${res.final_bankroll}`;
       drawPaths([res.bankroll_path], ["single"]);
+      drawLdwOverlay(res.ldw_path);
     });
   });
 

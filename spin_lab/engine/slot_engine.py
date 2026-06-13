@@ -74,6 +74,7 @@ def simulate(
     ldw = 0  # losses disguised as wins: 0 < payout < stake
     outcome_counts: dict[str, int] = {}
     bankroll_path: list[float] = []
+    ldw_path: list[int] = []
     bankroll = 0.0
 
     for _ in range(n_spins):
@@ -89,6 +90,7 @@ def simulate(
         outcome_counts[key] = outcome_counts.get(key, 0) + 1
         bankroll += payout - stake_points
         bankroll_path.append(bankroll)
+        ldw_path.append(ldw)
 
     return {
         "theme": t.name,
@@ -103,6 +105,7 @@ def simulate(
         "ldw_rate": round(ldw / n_spins, 6) if n_spins else 0,
         "final_bankroll": round(bankroll, 6),
         "outcome_counts": outcome_counts,
-        # downsample path to <=1000 points for charting
+        # downsample paths to <=1000 points for charting
         "bankroll_path": bankroll_path[:: max(1, n_spins // 1000)],
+        "ldw_path": ldw_path[:: max(1, n_spins // 1000)],
     }
