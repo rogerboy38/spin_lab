@@ -367,10 +367,11 @@ class TestLoteria(unittest.TestCase):
 
 class TestRoulette(unittest.TestCase):
     def test_wheel_and_colors(self):
-        from spin_lab.engine.roulette import WHEEL, color, POCKETS
-        self.assertEqual(POCKETS, 37)
-        self.assertEqual(len(WHEEL), 37)
-        self.assertEqual(set(WHEEL), set(range(37)))
+        from spin_lab.engine.roulette import WHEEL_EU, WHEEL_AM, color, pockets
+        self.assertEqual(pockets("european"), 37)
+        self.assertEqual(pockets("american"), 38)
+        self.assertEqual(set(WHEEL_EU), set(range(37)))
+        self.assertEqual(len(WHEEL_AM), 38)
         self.assertEqual(color(0), "green")
         self.assertEqual(color(1), "red")
         self.assertEqual(color(2), "black")
@@ -393,13 +394,22 @@ class TestRoulette(unittest.TestCase):
         self.assertEqual(r[1]["won"], 0)   # even loses on 0
         self.assertEqual(r[2]["won"], 36)  # straight-up 0 wins
 
-    def test_rtp_converges_to_36_37(self):
+    def test_rtp_european_vs_american(self):
         from spin_lab.engine.roulette import spin, settle, theoretical_rtp
         from spin_lab.engine.rng import make_rng
-        rng = make_rng(11)
-        staked = paid = 0.0
-        for _ in range(200_000):
-            n = spin(rng)
-            staked += 1
-            paid += settle([{"kind": "red", "amount": 1}], n)[0]["won"]
-        self.assertAlmostEqual(paid / staked, theoretical_rtp(), delta=0.01)
+        self.assertAlmostEqual(theoretical_rtp("european"), 36/37, places=9)
+        self.assertAlmostEqual(theoretical_rtp("american"), 36/38, places=9)
+        for variant in ("european", "american"):
+            rng = make_rng(11); staked = paid = 0.0
+            for _ in range(200_000):
+                n = spin(variant, rng); staked += 1
+                paid += settle([{"kind": "red", "amount": 1}], n)[0]["won"]
+            self.assertAlmostEqual(paid / staked, theoretical_rtp(variant), delta=0.01)
+
+    def test_double_zero(self):
+        from spin_lab.engine.roulette import settle, color, label, DOUBLE_ZERO
+        self.assertEqual(color(DOUBLE_ZERO), "green")
+        self.assertEqual(label(DOUBLE_ZERO), "00")
+        r = settle([{"kind": "red", "amount": 1}, {"kind": "straight", "target": "00", "amount": 1}], DOUBLE_ZERO)
+        self.assertEqual(r[0]["won"], 0)
+        self.assertEqual(r[1]["won"], 36)

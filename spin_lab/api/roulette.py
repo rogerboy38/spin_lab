@@ -31,15 +31,16 @@ def roulette_state():
     s = _state()
     recent = _load(s, "recent", [])
     bets = _load(s, "live_bets", [])
-    hc = rl.hot_cold(recent)
+    variant = s.variant or "european"
+    hc = rl.hot_cold(recent, variant)
     return {
+        "variant": variant,
         "round_no": s.round_no or 1,
         "last_number": s.last_number if s.last_number is not None else -1,
-        "last_color": rl.color(s.last_number) if (s.last_number or -1) >= 0 else None,
         "recent": recent[:18],
         "hot": hc["hot"], "cold": hc["cold"],
         "bets": bets,
-        "rtp": round(rl.theoretical_rtp(), 5),
+        "rtp": round(rl.theoretical_rtp(variant), 5),
     }
 
 
@@ -69,10 +70,23 @@ def roulette_clear(player):
 
 
 @frappe.whitelist(allow_guest=True)
+def roulette_set_variant(variant):
+    if variant not in ("european", "american"):
+        frappe.throw("bad variant")
+    s = _state()
+    s.db_set("variant", variant, update_modified=False)
+    s.db_set("live_bets", json.dumps([]), update_modified=False)
+    s.db_set("recent", json.dumps([]), update_modified=False)
+    frappe.db.commit()
+    return {"ok": True, "variant": variant}
+
+
+@frappe.whitelist(allow_guest=True)
 def roulette_spin():
     s = _state()
     bets = _load(s, "live_bets", [])
-    n = rl.spin(make_rng())
+    variant = s.variant or "european"
+    n = rl.spin(variant, make_rng())
     settled = rl.settle(bets, n)
     # per-player totals
     players = {}
