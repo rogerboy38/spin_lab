@@ -295,30 +295,57 @@
     });});};
 
   // ── oval / racetrack view (numbers in WHEEL order; click = neighbours bet) ──
-  var ovalMode=false, ovalSpots=[], oc=$("rl-oval").getContext("2d");
-  function drawOval(){ oc.clearRect(0,0,760,250); ovalSpots=[]; var w=WHEELS[variant],N=w.length;
-    var cx=380,cy=120,rx=330,ry=92;
-    // felt stadium
-    oc.fillStyle="#0b3d24";oc.strokeStyle="#caa84a";oc.lineWidth=3;
-    oc.beginPath();oc.ellipse(cx,cy,rx+26,ry+26,0,0,7);oc.stroke();
-    oc.beginPath();oc.ellipse(cx,cy,rx-30,ry-30,0,0,7);oc.fillStyle="#072a18";oc.fill();
-    oc.fillStyle="#9fe1cb";oc.font="bold 12px system-ui";oc.textAlign="center";oc.fillText("RACETRACK — click a number for a neighbours bet (5 straight chips)",cx,cy);
-    for(var i=0;i<N;i++){var n=w[i],a=i/N*2*Math.PI-Math.PI/2,x=cx+Math.cos(a)*rx,y=cy+Math.sin(a)*ry;
-      ovalSpots.push({x:x,y:y,n:n});
-      oc.beginPath();oc.roundRect?oc.roundRect(x-15,y-13,30,26,6):oc.rect(x-15,y-13,30,26);
-      oc.fillStyle=colHex(n);oc.fill();oc.strokeStyle=(winNum===n)?"#ffd86b":"rgba(255,255,255,.4)";oc.lineWidth=(winNum===n)?3:1;oc.stroke();
-      oc.fillStyle="#fff";oc.font="bold 12px system-ui";oc.textBaseline="middle";oc.fillText(lab(n),x,y);} }
+  var ovalMode=false, ovalSpots=[], ovalSections=[], oc=$("rl-oval").getContext("2d");
+  var OCX=380, OCY=115, OS=246, OR=70;   // stadium centre, straight half-length, track radius
+  var SECTIONS={
+    voisins:[{t:[0,2,3],c:2},{t:[4,7],c:1},{t:[12,15],c:1},{t:[18,21],c:1},{t:[19,22],c:1},{t:[25,26,28,29],c:2},{t:[32,35],c:1}],
+    tiers:[{t:[5,8],c:1},{t:[10,11],c:1},{t:[13,16],c:1},{t:[23,24],c:1},{t:[27,30],c:1},{t:[33,36],c:1}],
+    orphelins:[{t:[1],c:1},{t:[6,9],c:1},{t:[14,17],c:1},{t:[17,20],c:1},{t:[31,34],c:1}],
+    zero:[{t:[0,3],c:1},{t:[12,15],c:1},{t:[26],c:1},{t:[32,35],c:1}]
+  };
+  function stadiumPath(g,s,rr){ g.beginPath();g.moveTo(OCX-s,OCY-rr);g.lineTo(OCX+s,OCY-rr);
+    g.arc(OCX+s,OCY,rr,-Math.PI/2,Math.PI/2);g.lineTo(OCX-s,OCY+rr);g.arc(OCX-s,OCY,rr,Math.PI/2,3*Math.PI/2);g.closePath(); }
+  function trackPoint(d){ var top=2*OS, arc=Math.PI*OR;
+    if(d<top) return {x:OCX-OS+d, y:OCY-OR};
+    d-=top; if(d<arc){var a=-Math.PI/2+d/OR; return {x:OCX+OS+OR*Math.cos(a), y:OCY+OR*Math.sin(a)};}
+    d-=arc; if(d<top) return {x:OCX+OS-d, y:OCY+OR};
+    d-=top; var a2=Math.PI/2+d/OR; return {x:OCX-OS+OR*Math.cos(a2), y:OCY+OR*Math.sin(a2)}; }
+  function drawOval(){ oc.clearRect(0,0,760,250); ovalSpots=[]; ovalSections=[]; var w=WHEELS[variant],N=w.length;
+    // felt ring + infield
+    stadiumPath(oc,OS,OR+18); oc.fillStyle="#0b3d24"; oc.fill(); oc.strokeStyle="#caa84a"; oc.lineWidth=3; oc.stroke();
+    stadiumPath(oc,OS,OR-24); oc.fillStyle="#072a18"; oc.fill(); oc.strokeStyle="#caa84a"; oc.lineWidth=2; oc.stroke();
+    // call-bet section zones inside the infield
+    var labels=[["tiers","TIERS"],["orphelins","ORPHELINS"],["voisins","VOISINS"],["zero","Z\u00c9RO"]];
+    var bw=(2*OS-60)/4, by=OCY-15;
+    for(var k=0;k<4;k++){var bx=OCX-OS+30+k*bw; ovalSections.push({x:bx,y:by,w:bw-6,h:30,key:labels[k][0]});
+      oc.fillStyle="rgba(202,168,74,.12)"; oc.fillRect(bx,by,bw-6,30); oc.strokeStyle="rgba(202,168,74,.5)"; oc.lineWidth=1; oc.strokeRect(bx,by,bw-6,30);
+      oc.fillStyle="#e8d9a0"; oc.font="bold 11px system-ui"; oc.textAlign="center"; oc.textBaseline="middle"; oc.fillText(labels[k][1],bx+(bw-6)/2,by+15);}
+    oc.fillStyle="#9fe1cb"; oc.font="11px system-ui"; oc.textAlign="center"; oc.fillText("click a number = neighbours (5 chips) \u00b7 click a section = call bet",OCX,OCY-34);
+    // numbers in wheel order along the track centreline
+    var per=4*OS+2*Math.PI*OR;
+    for(var i=0;i<N;i++){var n=w[i],p=trackPoint(((i+0.5)/N)*per); ovalSpots.push({x:p.x,y:p.y,n:n});
+      oc.beginPath(); oc.roundRect?oc.roundRect(p.x-14,p.y-12,28,24,5):oc.rect(p.x-14,p.y-12,28,24);
+      oc.fillStyle=colHex(n); oc.fill(); oc.strokeStyle=(winNum===n)?"#ffd86b":"rgba(255,255,255,.45)"; oc.lineWidth=(winNum===n)?3:1; oc.stroke();
+      oc.fillStyle="#fff"; oc.font="bold 12px system-ui"; oc.textAlign="center"; oc.textBaseline="middle"; oc.fillText(lab(n),p.x,p.y);} }
   function neighbours(n){ var w=WHEELS[variant],idx=w.indexOf(n),N=w.length,out=[];
     for(var d=-2;d<=2;d++)out.push(w[(idx+d+N)%N]); return out; }
-  $("rl-oval").addEventListener("click",function(e){ if(spinning)return; var rect=e.target.getBoundingClientRect();
-    var x=(e.clientX-rect.left)*(760/rect.width),y=(e.clientY-rect.top)*(250/rect.height);
+  function placeMany(list){ // list: [{kind,target,amount}]
+    var total=list.reduce(function(a,b){return a+b.amount;},0);
+    if(bal<total){$("rl-round").textContent="need "+total+" cr for that bet";return;}
+    tone(640,0.05);
+    (function place(i){ if(i>=list.length)return; var b=list[i];
+      var st=(b.kind==="inside")?JSON.stringify(b.target):b.target;
+      call("roulette_bet",{player:me,color:myColor,kind:b.kind,target:st,amount:b.amount}).then(function(r){if(r){syncBal(r,-b.amount); if(r.bets){liveBets=r.bets;drawTable();drawTray();}} place(i+1);}); })(0); }
+  $("rl-oval").addEventListener("click",function(e){ if(spinning)return; if(resultPhase){endResultPhase();liveBets=[];}
+    var rect=e.target.getBoundingClientRect(); var x=(e.clientX-rect.left)*(760/rect.width),y=(e.clientY-rect.top)*(250/rect.height);
+    var sec=ovalSections.find(function(z){return x>=z.x&&x<=z.x+z.w&&y>=z.y&&y<=z.y+z.h;});
+    if(sec){ var combos=SECTIONS[sec.key].map(function(co){return {kind:"inside",target:co.t,amount:denom*co.c};});
+      placeMany(combos); $("rl-round").textContent=sec.key+" call bet ("+SECTIONS[sec.key].reduce(function(a,b){return a+b.c;},0)+" chips)"; return; }
     var best=null,bd=1e9; ovalSpots.forEach(function(sp){var d=(x-sp.x)*(x-sp.x)+(y-sp.y)*(y-sp.y);if(d<bd){bd=d;best=sp;}});
-    if(!best||bd>30*30)return; var nb=neighbours(best.n);
-    if(bal<denom*nb.length){$("rl-round").textContent="need "+(denom*nb.length)+" cr for a neighbours bet";return;}
-    tone(640,0.05); var q=nb.slice();
-    (function place(i){ if(i>=q.length)return; call("roulette_bet",{player:me,color:myColor,kind:"inside",target:JSON.stringify([q[i]]),amount:denom}).then(function(r){if(r){syncBal(r,-denom); if(r.bets){liveBets=r.bets;drawTable();drawTray();}} place(i+1);}); })(0);
+    if(!best||bd>26*26)return; var nb=neighbours(best.n);
+    placeMany(nb.map(function(nn){return {kind:"inside",target:[nn],amount:denom};}));
     $("rl-round").textContent="neighbours of "+lab(best.n)+": "+nb.map(lab).join(", "); });
-  $("rl-honest").onclick=function(){ rHonest=!rHonest; $("rl-honest").innerHTML=rHonest?"&#128269; Honest: ON":"&#128269; Honest: off"; $("rl-honest").style.borderColor=rHonest?"#37e0a0":""; };
+    $("rl-honest").onclick=function(){ rHonest=!rHonest; $("rl-honest").innerHTML=rHonest?"&#128269; Honest: ON":"&#128269; Honest: off"; $("rl-honest").style.borderColor=rHonest?"#37e0a0":""; };
   $("rl-view").onclick=function(){ ovalMode=!ovalMode;
     $("rl-table").style.display=ovalMode?"none":"block"; $("rl-oval").style.display=ovalMode?"block":"none";
     $("rl-view").innerHTML=ovalMode?"&#9636; Table view":"&#9681; Oval / racetrack";
