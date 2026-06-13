@@ -384,11 +384,23 @@ window.SLAudio = (function () {
 <script>
 (function () {
   const VICONS = {
+    // card lows
     TEN:"10", JACK:"J", QUEEN:"Q", KING:"K", ACE:"A",
-    CRAB:"🦀", OCTOPUS:"🐙", SHARK:"🦈", KRAKEN:"🐉",
-    WILD:"🃏", PEARL:"🦪",
+    // Deep Sea 4096
+    CRAB:"🦀", OCTOPUS:"🐙", SHARK:"🦈", KRAKEN:"🐉", PEARL:"🦪",
+    // Classic Fruits 4096
+    CHERRY:"🍒", LEMON:"🍋", PLUM:"🫐", ORANGE:"🍊", GRAPE:"🍇", STRAWBERRY:"🍓",
+    // Lucky Sevens / Stars & Bars 4096
+    BLANK:"▫️", BELL:"🔔", BAR:"𝐁𝐀𝐑", SEVEN:"7️⃣", DIAMOND:"💎",
+    STAR:"⭐", BAR1:"𝐁𝐀𝐑", BAR2:"𝐁𝐀𝐑²", BAR3:"𝐁𝐀𝐑³",
+    // Star Nova 4096 gems
+    PURPLE:"🟣", BLUE:"🔵", GREEN:"🟢", YELLOW:"🟡",
+    // specials
+    WILD:"🃏", SCATTER:"🎁",
   };
-  const PREMIUM = { CRAB:1, OCTOPUS:1, SHARK:1, KRAKEN:1, WILD:1, PEARL:1 };
+  const PREMIUM = { CRAB:1, OCTOPUS:1, SHARK:1, KRAKEN:1, WILD:1, PEARL:1,
+                    SEVEN:1, DIAMOND:1, BELL:1, STAR:1, BAR1:1, BAR2:1, BAR3:1,
+                    GRAPE:1, STRAWBERRY:1, BAR:1, SCATTER:1 };
   const $ = (id) => document.getElementById(id);
   const ctx = $("vs-grid").getContext("2d");
   const REELS = 6, VROWS = 4, CW = 140, CH = 96, OX = 30, OY = 12;
