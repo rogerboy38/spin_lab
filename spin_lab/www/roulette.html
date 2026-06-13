@@ -66,6 +66,7 @@
       </div>
       <div class="big" id="rl-result" style="font-size:1.8rem;text-align:center;margin:.6rem auto 0">&mdash;</div>
       <div id="rl-players"></div>
+      <div id="rl-live"></div>
     </div>
 
     <div class="row" style="margin-top:1rem">
@@ -108,6 +109,14 @@
       <input id="d-start" type="number" value="1000" title="starting chips" style="width:80px">
       <button class="rz-btn" id="d-create">Create</button>
       <span id="d-msg" style="font-size:.8rem;color:#37e0a0;margin-left:8px"></span>
+    </div>
+    <div style="background:#0e0e22;border:1px solid #2a2a4d;border-radius:10px;padding:10px 12px;margin-bottom:12px">
+      <div style="font-weight:700;margin-bottom:6px;color:#cfeede">Classroom &mdash; create N students at once</div>
+      <input id="d-cls-n" type="number" value="10" min="2" max="40" style="width:60px" title="how many"> students,
+      start chips <input id="d-cls-start" type="number" value="1000" style="width:80px">,
+      prefix <input id="d-cls-pre" value="student" style="width:90px">
+      <button class="rz-btn" id="d-cls-go">Create class</button>
+      <div id="d-cls-out" style="font-size:.78rem;color:#cfeede;margin-top:6px;white-space:pre-wrap"></div>
     </div>
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
       <div style="font-weight:700;color:#cfeede">Accounts &amp; balances</div>
@@ -214,7 +223,8 @@
     }
     return {profit:profit,ruin:ruin,downAlive:downAlive,avgEnd:sumEnd/runs,avgTurn:sumTurn/runs,paths:paths,runs:runs};
   }
-  function drawSys(res,bank,spins){
+  var sysRAF=null;
+  function drawSys(res,bank,spins,hero,reveal){
     var c=$("sys-canvas"),g=c.getContext("2d");g.clearRect(0,0,720,240);
     var maxY=bank;res.paths.forEach(function(o){o.p.forEach(function(v){if(v>maxY)maxY=v;});});
     maxY=maxY*1.08||1; var W=720,H=240,padL=46,padB=18,padT=8;
@@ -226,10 +236,28 @@
     // zero (ruin) line
     g.strokeStyle="rgba(255,107,107,.45)";g.beginPath();g.moveTo(padL,Y(0));g.lineTo(W-8,Y(0));g.stroke();
     g.fillStyle="#ff6b6b";g.fillText("ruin 0",padL-4,Y(0)-2);
-    // trajectories
-    res.paths.forEach(function(o){ g.beginPath(); o.p.forEach(function(v,i){var x=X(i),y=Y(v);i?g.lineTo(x,y):g.moveTo(x,y);});
-      g.strokeStyle=o.busted?"rgba(255,80,80,.85)":(o.up?"rgba(80,230,160,.8)":"rgba(150,150,200,.55)");g.lineWidth=o.busted?1.6:1.1;g.stroke(); });
-    g.fillStyle="#8c88b5";g.textAlign="left";g.fillText("sample sessions ("+res.paths.length+" of "+res.runs+") — red = busted, green = ended up, grey = down but alive",padL,H-4);
+    var animating=(hero!=null);
+    // the faded fan of all the OTHER possible nights
+    res.paths.forEach(function(o,idx){ if(idx===hero)return; g.beginPath(); o.p.forEach(function(v,i){var x=X(i),y=Y(v);i?g.lineTo(x,y):g.moveTo(x,y);});
+      var a=animating?0.22:1; g.strokeStyle=o.busted?"rgba(255,80,80,"+(a*.9)+")":(o.up?"rgba(80,230,160,"+(a*.85)+")":"rgba(150,150,200,"+(a*.6)+")");
+      g.lineWidth=o.busted?1.6:1.1;g.stroke(); });
+    // the ONE highlighted gambler ("your night"), revealed spin-by-spin
+    if(animating && res.paths[hero]){ var hp=res.paths[hero].p, n=Math.max(1,Math.min(reveal||hp.length,hp.length));
+      g.beginPath(); for(var i=0;i<n;i++){var x=X(i),y=Y(hp[i]);i?g.lineTo(x,y):g.moveTo(x,y);}
+      g.strokeStyle="#ffd86b";g.lineWidth=2.6;g.shadowColor="rgba(255,216,107,.7)";g.shadowBlur=6;g.stroke();g.shadowBlur=0;
+      var hx=X(n-1),hy=Y(hp[n-1]); g.beginPath();g.arc(hx,hy,4,0,7);g.fillStyle="#fff";g.fill();
+      g.fillStyle="#ffd86b";g.font="bold 11px system-ui";g.textAlign="left";
+      g.fillText("YOUR night: spin "+(n-1)+" · "+Math.round(hp[n-1])+" cr",padL,H-4);
+    } else {
+      g.fillStyle="#8c88b5";g.font="10px system-ui";g.textAlign="left";g.fillText("sample sessions ("+res.paths.length+" of "+res.runs+") — red = busted, green = ended up, grey = down but alive",padL,H-4);
+    }
+  }
+  function animateHero(res,bank,spins){
+    if(sysRAF)cancelAnimationFrame(sysRAF);
+    if(!res.paths.length){drawSys(res,bank,spins);return;}
+    var hero=Math.floor(Math.random()*res.paths.length), len=res.paths[hero].p.length, step=Math.max(1,Math.round(len/90)), rev=1;
+    (function frame(){ drawSys(res,bank,spins,hero,rev); rev+=step;
+      if(rev<len){ sysRAF=requestAnimationFrame(frame); } else { drawSys(res,bank,spins,hero,len); sysRAF=null; } })();
   }
   function runSys(){
     var sys=$("sys-sel").value, base=Math.max(1,+$("sys-base").value||5), bank=Math.max(1,+$("sys-bank").value||500),
@@ -238,7 +266,7 @@
     var am=(variant==="american"); var pWin=am?18/38:18/37; var edge=am?2/38:1/37;
     $("sys-wheel").textContent=am?"American (00)":"European"; $("sys-edge").textContent=(edge*100).toFixed(2)+"%";
     var res=simulate(sys,base,bank,tmax,spins,runs,pWin);
-    drawSys(res,bank,spins);
+    animateHero(res,bank,spins);
     var pct=function(n){return (100*n/res.runs).toFixed(1)+"%";};
     var expLoss=edge*res.avgTurn, actLoss=bank-res.avgEnd;
     $("sys-stats").innerHTML=
@@ -273,13 +301,23 @@
   $("d-create").onclick=function(){ var email=$("d-email").value.trim(); if(!email){$("d-msg").textContent="email required";return;}
     acc("admin_create_player",{email:email,first_name:$("d-name").value.trim()||email.split("@")[0],password:$("d-pass").value||"changeme123",start:$("d-start").value||1000}).then(function(r){
       $("d-msg").textContent=r?("created "+email):"failed (maybe exists)"; $("d-email").value="";$("d-name").value="";$("d-pass").value=""; dlgLoad(); }); };
-  var serverWallet=false;
+  var CLS_COLORS=["#ff6b6b","#37e0a0","#6bb8ff","#ffd86b","#c98bff","#ff9f43","#4dd0e1","#f06292","#aed581","#ba68c8","#ff8a65","#90caf9"];
+  $("d-cls-go").onclick=function(){ var n=Math.max(2,Math.min(40,+$("d-cls-n").value||10)), start=+$("d-cls-start").value||1000,
+      pre=($("d-cls-pre").value||"student").trim().replace(/[^a-z0-9]/gi,"").toLowerCase()||"student";
+    var out=$("d-cls-out"); out.textContent="creating "+n+" students…"; var lines=[]; var i=1;
+    (function mk(){ if(i>n){ out.textContent="URL: "+location.origin+"/roulette\nlogin id  /  password  (each starts with "+start+" cr)\n"+lines.join("\n"); dlgLoad(); return; }
+      var email=pre+i+"@class.local", pass="play"+i+i, color=CLS_COLORS[(i-1)%CLS_COLORS.length];
+      acc("admin_create_player",{email:email,first_name:pre+" "+i,password:pass,start:start,color:color}).then(function(r){
+        lines.push(email+"   /   "+pass); i++; mk(); }); })(); };
+  var serverWallet=false, isAdmin=false;
   function walletDelta(d,cb){ if(serverWallet){ acc("adjust",{delta:d}).then(function(r){ if(r){bal=r.balance;setBal();} if(cb)cb(); }); } else { bal+=d; setBal(); if(cb)cb(); } }
   function syncBal(r,guestDelta){ if(r&&r.balance!=null){ bal=r.balance; setBal(); } else { bal+=guestDelta; setBal(); } }
   function initAccount(){ acc("whoami").then(function(w){ if(w&&!w.guest){ serverWallet=true; me=w.name; myColor=w.color||myColor;
       if(w.balance!=null){bal=w.balance;setBal();} $("rz-name").textContent=me; $("rz-name").style.color=myColor; $("rl-rename").style.display="none"; $("rl-setname").style.display="none";
       $("rz-login").innerHTML = w.is_admin ? '<button class="rz-btn" id="rz-dealer" style="border-color:#ffd86b;color:#ffd86b">&#128081; Dealer</button>' : '<span style="color:#37e0a0;font-size:.8rem">&#9679; account</span>';
+      isAdmin=!!w.is_admin;
       if(w.is_admin){ $("rz-dealer").onclick=openDealer; }
+      if(!isAdmin){ var sb=$("rl-spin"); sb.textContent="\u23f3 Dealer spins the wheel"; sb.style.opacity=".55"; sb.style.cursor="not-allowed"; }
     } else { $("rz-login").innerHTML='<a class="rz-btn" href="/login?redirect-to=/roulette">Log in</a>'; } }); }
   function whenFrappe(fn){(window.frappe&&frappe.call&&(frappe.csrf_token||document.readyState==="complete"))?fn():setTimeout(function(){whenFrappe(fn);},120);}
   var actx=null;function tone(f,d,w,t,g,ef){w=w||0;t=t||"square";g=g||0.05;try{if(!actx)actx=new(window.AudioContext||window.webkitAudioContext)();if(actx.state==="suspended")actx.resume();var t0=actx.currentTime+w,o=actx.createOscillator(),gn=actx.createGain();o.type=t;o.frequency.setValueAtTime(f,t0);if(ef)o.frequency.exponentialRampToValueAtTime(ef,t0+d);gn.gain.setValueAtTime(g,t0);gn.gain.exponentialRampToValueAtTime(0.0001,t0+d);o.connect(gn);gn.connect(actx.destination);o.start(t0);o.stop(t0+d+0.05);}catch(e){}}
@@ -428,6 +466,7 @@
       call("roulette_bet",{player:me,color:myColor,kind:b.kind,target:st,amount:b.amount}).then(function(r){ if(r){syncBal(r,-b.amount); if(r.bets){liveBets=r.bets;drawTable();drawTray();if(ovalMode)drawOval();}} place(i+1); }); })(0);
     tone(620,0.05); };
   $("rl-spin").onclick=function(){if(spinning)return;
+    if(serverWallet&&!isAdmin){ $("rl-round").textContent="Only the dealer (house) spins the wheel \u2014 place your chips and wait."; return; }
     var mineNow=liveBets.filter(function(b){return b.player===me;}).map(function(b){return {kind:b.kind,target:b.target,amount:b.amount};});
     if(mineNow.length){lastMine=mineNow;}
     call("roulette_spin").then(function(res){if(!res)return;
@@ -527,6 +566,10 @@
   function applyState(s){if(!s)return; if(s.variant&&s.variant!==variant){variant=s.variant;buildZones();setVariantUI();drawWheel(null);}
     if(resultPhase&&(s.bets||[]).length>0){endResultPhase();}   // someone started the next round
     liveBets=s.bets||[];drawTable();drawTray();if(ovalMode)drawOval();
+    (function(){ var byP={}; liveBets.forEach(function(b){ if(!byP[b.player])byP[b.player]={c:b.color||"#ffd86b",amt:0,n:0}; byP[b.player].amt+=b.amount; byP[b.player].n++; });
+      var names=Object.keys(byP); var pot=names.reduce(function(a,k){return a+byP[k].amt;},0);
+      $("rl-live").innerHTML = names.length ? ("<div style='font-size:.72rem;color:#8c88b5;margin:6px 0 2px'>At the table this round &middot; pot "+pot.toFixed(0)+" cr</div>"+
+        names.map(function(k){var p=byP[k];return "<span style='display:inline-block;margin:2px 6px 2px 0;font-size:.8rem'><span style='display:inline-block;width:9px;height:9px;border-radius:50%;background:"+p.c+";margin-right:4px'></span>"+k+": <b>"+p.amt.toFixed(0)+"</b></span>";}).join("")) : ""; })();
     if(!resultPhase)$("rl-round").textContent="Round "+s.round_no+" · "+variant+" · place chips, then SPIN";
     $("rl-recent").innerHTML=(s.recent||[]).map(function(n){return "<span class='r-"+col(n)+"'>"+lab(n)+"</span>";}).join("");
     $("rl-hot").innerHTML=(s.hot||[]).map(function(h){return "<span class='r-"+col(h.n)+"'>"+lab(h.n)+"</span>";}).join("");

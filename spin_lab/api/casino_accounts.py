@@ -95,7 +95,7 @@ def admin_credit(user, amount):
 
 
 @frappe.whitelist()
-def admin_create_player(email, first_name, password, start=START_CHIPS):
+def admin_create_player(email, first_name, password, start=START_CHIPS, color=None):
     if not _is_admin():
         frappe.throw("Admins only", frappe.PermissionError)
     from frappe.utils.password import update_password
@@ -107,6 +107,9 @@ def admin_create_player(email, first_name, password, start=START_CHIPS):
         u.add_roles("Casino Player")
         update_password(email, password)
     _ensure_account(email)
-    frappe.db.set_value("Casino Account", {"user": email}, "balance", float(start), update_modified=False)
+    vals = {"balance": float(start)}
+    if color:
+        vals["color"] = color
+    frappe.db.set_value("Casino Account", {"user": email}, vals, update_modified=False)
     frappe.db.commit()
     return {"ok": True, "user": email}
