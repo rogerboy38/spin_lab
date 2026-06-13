@@ -281,7 +281,7 @@
       var winLines=mine.filter(function(b){return b.win;}).map(function(b){return (b.kind==="inside"?b.target.map(lab).join("/"):b.kind)+" +"+Math.round(b.won);});
       $("rl-round").innerHTML = winLines.length ? ("&#127881; paid: "+winLines.join(" · ")+" — chips clear in a moment")
                                                : (mine.length? "no winning bets this round — chips swept" : "");
-      setTimeout(function(){ resultPhase=false; resultData=null; drawTable(); refreshRound(); }, 4500);
+      setTimeout(function(){ if(resultPhase){resultPhase=false; resultData=null; drawTable(); refreshRound();} }, 12000);
     });});};
 
   // ── oval / racetrack view (numbers in WHEEL order; click = neighbours bet) ──
@@ -314,12 +314,13 @@
     $("rl-view").style.borderColor=ovalMode?"#3ad7ff":""; if(ovalMode)drawOval(); };
 
   function applyState(s){if(!s)return; if(s.variant&&s.variant!==variant){variant=s.variant;buildZones();setVariantUI();drawWheel(null);}
+    if(resultPhase&&(s.bets||[]).length>0){resultPhase=false;resultData=null;}   // someone started the next round
     liveBets=s.bets||[];drawTable();drawTray();if(ovalMode)drawOval();
-    $("rl-round").textContent="Round "+s.round_no+" · "+variant+" · place chips, then SPIN";
+    if(!resultPhase)$("rl-round").textContent="Round "+s.round_no+" · "+variant+" · place chips, then SPIN";
     $("rl-recent").innerHTML=(s.recent||[]).map(function(n){return "<span class='r-"+col(n)+"'>"+lab(n)+"</span>";}).join("");
     $("rl-hot").innerHTML=(s.hot||[]).map(function(h){return "<span class='r-"+col(h.n)+"'>"+lab(h.n)+"</span>";}).join("");
     $("rl-cold").innerHTML=(s.cold||[]).map(function(h){return "<span class='r-"+col(h.n)+"'>"+lab(h.n)+"</span>";}).join("");}
 
-  whenFrappe(function(){initAccount();buildZones();setVariantUI();drawWheel(null);drawTable();drawTray();refreshRound();setInterval(function(){if(!spinning&&!resultPhase)call("roulette_state").then(applyState);},1800);});
+  whenFrappe(function(){initAccount();buildZones();setVariantUI();drawWheel(null);drawTable();drawTray();refreshRound();setInterval(function(){if(!spinning)call("roulette_state").then(applyState);},1800);});
 })();</script>
 {% endblock %}
