@@ -50,6 +50,7 @@
         <button class="rz-btn" id="rl-eu" style="border-color:#37e0a0;color:#37e0a0">European &middot; 97.30%</button>
         <button class="rz-btn" id="rl-am">American (00) &middot; 94.74%</button>
         <button class="rz-btn" id="rl-view">&#9681; Oval / racetrack</button>
+        <button class="rz-btn" id="rl-honest">&#128269; Honest: off</button>
       </div>
       <div>
         <input id="rl-rename" placeholder="your name" style="width:120px"><button class="rz-btn" id="rl-setname">set</button>
@@ -167,7 +168,8 @@
   // TABLE
   var CW=52,CH=46,X0=58,Y0=8;
   var tc=$("rl-table").getContext("2d"),liveBets=[];
-  var zones=[],numCenter={},spots=[],winNum=null,resultPhase=false,resultData=null;
+  var zones=[],numCenter={},spots=[],winNum=null,resultPhase=false,resultData=null,rHonest=false;
+  function endResultPhase(){ resultPhase=false; resultData=null; winNum=null; $("rl-result").textContent="—"; $("rl-result").style.color=""; $("rl-players").innerHTML=""; }
   function vAt(c,r){return c*3+(3-r);}
   function buildZones(){ zones=[]; numCenter={};
     if(variant==="american"){zones.push({x:8,y:Y0,w:46,h:CH*1.5,kind:"straight",target:0,label:"0",fill:"#1e8e4f"});
@@ -226,7 +228,7 @@
       drawChip(tc,g.pos.x,g.pos.y,g.amt,g.color,g.player===me);
       tc.restore();
       if(g.win){tc.fillStyle="#37e0a0";tc.font="bold 10px system-ui";tc.textAlign="center";tc.fillText("+"+Math.round(g.won),g.pos.x,g.pos.y-15);}});}
-  $("rl-table").addEventListener("click",function(e){if(spinning)return;if(resultPhase){resultPhase=false;resultData=null;winNum=null;liveBets=[];drawTable();}var rect=e.target.getBoundingClientRect();var x=(e.clientX-rect.left)*(760/rect.width),y=(e.clientY-rect.top)*(250/rect.height);
+  $("rl-table").addEventListener("click",function(e){if(spinning)return;if(resultPhase){endResultPhase();liveBets=[];drawTable();}var rect=e.target.getBoundingClientRect();var x=(e.clientX-rect.left)*(760/rect.width),y=(e.clientY-rect.top)*(250/rect.height);
     if(bal<denom){$("rl-round").textContent="not enough credits";return;}
     var oz=zones.find(function(z){return z.kind!=="straight"&&x>=z.x&&x<=z.x+z.w&&y>=z.y&&y<=z.y+z.h;});
     var kind,target;
@@ -268,12 +270,21 @@
   $("rl-spin").onclick=function(){if(spinning)return;
     lastMine=liveBets.filter(function(b){return b.player===me;}).map(function(b){return {kind:b.kind,target:b.target,amount:b.amount};});
     call("roulette_spin").then(function(res){if(!res)return;
-    spinWheelTo(res.number,function(){$("rl-result").textContent=lab(res.number)+" "+res.color.toUpperCase();$("rl-result").style.color=colHex(res.number);tone(res.color==="green"?300:520,0.3,0,"sawtooth",0.06);
+    spinWheelTo(res.number,function(){var label=lab(res.number)+" "+res.color.toUpperCase();$("rl-result").style.color=colHex(res.number);tone(res.color==="green"?300:520,0.3,0,"sawtooth",0.06);
       var meRow=(res.players||[]).find(function(p){return p.player===me;});
-      if(meRow){ if(meRow.balance!=null){bal=meRow.balance;setBal();} else if(meRow.won>0){bal+=meRow.won;setBal();}
-        if(meRow.net>0){ [523,659,784,1047].forEach(function(f,i){tone(f,0.16,i*0.1,"square",0.05);});
-          $("rl-result").innerHTML=lab(res.number)+" "+res.color.toUpperCase()+' &mdash; <span style="color:#37e0a0">YOU WON +'+meRow.net.toFixed(0)+' &#127881;</span>';
-        } else if(meRow.staked>0){ tone(200,0.3,0,"sawtooth",0.05); } }
+      if(meRow){ if(meRow.balance!=null){bal=meRow.balance;setBal();} else if(meRow.won>0){bal+=meRow.won;setBal();} }
+      var won=meRow?meRow.won:0, net=meRow?meRow.net:0, staked=meRow?meRow.staked:0;
+      function fanfare(){[523,659,784,1047].forEach(function(f,i){tone(f,0.16,i*0.1,"square",0.05);});}
+      if(rHonest){
+        if(net>0){ fanfare(); $("rl-result").innerHTML=label+' &mdash; <span style="color:#37e0a0">NET +'+net.toFixed(0)+'</span>'; }
+        else if(won>0){ tone(200,0.3,0,"sawtooth",0.05); $("rl-result").innerHTML=label+' &mdash; <span style="color:#ff6b6b">won '+won.toFixed(0)+' but staked '+staked.toFixed(0)+' &rarr; NET '+net.toFixed(0)+' &middot; LDW</span>'; }
+        else if(staked>0){ tone(200,0.3,0,"sawtooth",0.05); $("rl-result").innerHTML=label+' &mdash; <span style="color:#ff6b6b">NET '+net.toFixed(0)+'</span>'; }
+        else $("rl-result").textContent=label;
+      } else {
+        if(won>0){ fanfare(); $("rl-result").innerHTML=label+' &mdash; <span style="color:#37e0a0">YOU WON +'+won.toFixed(0)+' &#127881;</span>'; }
+        else if(staked>0){ tone(200,0.3,0,"sawtooth",0.05); $("rl-result").textContent=label; }
+        else $("rl-result").textContent=label;
+      }
       $("rl-players").innerHTML=(res.players&&res.players.length)?("<table class='lead'><tr><th>seat</th><th>staked</th><th>won</th><th>net</th></tr>"+res.players.map(function(p){return "<tr><td style='color:"+(p.color||'#fff')+"'>"+p.player+(p.player===me?" (you)":"")+"</td><td>"+p.staked.toFixed(0)+"</td><td>"+p.won.toFixed(0)+"</td><td style='color:"+(p.net>=0?'#37e0a0':'#ff6b6b')+"'>"+(p.net>=0?'+':'')+p.net.toFixed(0)+"</td></tr>";}).join("")+"</table>"):"<div style='color:#8c88b5'>no bets that round</div>";
       // result phase: keep chips on the table; winners glow with payout, losers fade
       winNum=res.number; resultData=res; resultPhase=true; liveBets=[]; drawResult(); drawTray();
@@ -281,7 +292,7 @@
       var winLines=mine.filter(function(b){return b.win;}).map(function(b){return (b.kind==="inside"?b.target.map(lab).join("/"):b.kind)+" +"+Math.round(b.won);});
       $("rl-round").innerHTML = winLines.length ? ("&#127881; paid: "+winLines.join(" · ")+" — chips clear in a moment")
                                                : (mine.length? "no winning bets this round — chips swept" : "");
-      setTimeout(function(){ if(resultPhase){resultPhase=false; resultData=null; drawTable(); refreshRound();} }, 12000);
+      setTimeout(function(){ if(resultPhase){endResultPhase(); drawTable(); refreshRound();} }, 12000);
     });});};
 
   // ── oval / racetrack view (numbers in WHEEL order; click = neighbours bet) ──
@@ -308,13 +319,14 @@
     tone(640,0.05); var q=nb.slice();
     (function place(i){ if(i>=q.length)return; call("roulette_bet",{player:me,color:myColor,kind:"inside",target:JSON.stringify([q[i]]),amount:denom}).then(function(r){if(r){syncBal(r,-denom); if(r.bets){liveBets=r.bets;drawTable();drawTray();}} place(i+1);}); })(0);
     $("rl-round").textContent="neighbours of "+lab(best.n)+": "+nb.map(lab).join(", "); });
+  $("rl-honest").onclick=function(){ rHonest=!rHonest; $("rl-honest").innerHTML=rHonest?"&#128269; Honest: ON":"&#128269; Honest: off"; $("rl-honest").style.borderColor=rHonest?"#37e0a0":""; };
   $("rl-view").onclick=function(){ ovalMode=!ovalMode;
     $("rl-table").style.display=ovalMode?"none":"block"; $("rl-oval").style.display=ovalMode?"block":"none";
     $("rl-view").innerHTML=ovalMode?"&#9636; Table view":"&#9681; Oval / racetrack";
     $("rl-view").style.borderColor=ovalMode?"#3ad7ff":""; if(ovalMode)drawOval(); };
 
   function applyState(s){if(!s)return; if(s.variant&&s.variant!==variant){variant=s.variant;buildZones();setVariantUI();drawWheel(null);}
-    if(resultPhase&&(s.bets||[]).length>0){resultPhase=false;resultData=null;}   // someone started the next round
+    if(resultPhase&&(s.bets||[]).length>0){endResultPhase();}   // someone started the next round
     liveBets=s.bets||[];drawTable();drawTray();if(ovalMode)drawOval();
     if(!resultPhase)$("rl-round").textContent="Round "+s.round_no+" · "+variant+" · place chips, then SPIN";
     $("rl-recent").innerHTML=(s.recent||[]).map(function(n){return "<span class='r-"+col(n)+"'>"+lab(n)+"</span>";}).join("");
