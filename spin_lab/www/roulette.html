@@ -288,8 +288,12 @@
       trc.beginPath();trc.arc(cx,cy,r,0,7);trc.fillStyle=CC[i];trc.fill();trc.lineWidth=denom===d?5:2;trc.strokeStyle=denom===d?"#ffd86b":"rgba(255,255,255,.5)";trc.stroke();
       trc.fillStyle="#fff";trc.font="bold 14px system-ui";trc.textAlign="center";trc.textBaseline="middle";trc.fillText(d,cx,cy);});
     var mine=liveBets.filter(function(b){return b.player===me;}),tot=mine.reduce(function(a,b){return a+b.amount;},0);
-    trc.fillStyle="#cfeede";trc.font="bold 12px system-ui";trc.textAlign="left";trc.textBaseline="alphabetic";trc.fillText("Your bets: "+mine.length+" · "+tot.toFixed(0)+" cr at risk",14,104);
-    trc.fillStyle=myColor;trc.beginPath();trc.arc(22,134,8,0,7);trc.fill();trc.fillStyle="#cfeede";trc.font="11px system-ui";trc.fillText("that's you on the shared table",38,138);}
+    var potTot=liveBets.reduce(function(a,b){return a+b.amount;},0);
+    trc.textAlign="left";trc.textBaseline="alphabetic";
+    trc.fillStyle="#ffd86b";trc.font="bold 14px system-ui";trc.fillText("Your stake: "+tot.toFixed(0)+" cr",14,100);
+    trc.fillStyle="#9a96c4";trc.font="11px system-ui";trc.fillText("("+mine.length+" bet"+(mine.length===1?"":"s")+")",14,116);
+    trc.fillStyle="#9fe1cb";trc.font="bold 12px system-ui";trc.fillText("Table pot: "+potTot.toFixed(0)+" cr",150,100);
+    trc.fillStyle=myColor;trc.beginPath();trc.arc(22,140,8,0,7);trc.fill();trc.fillStyle="#cfeede";trc.font="11px system-ui";trc.fillText("that's you on the shared table",38,144);}
   $("rl-tray").addEventListener("click",function(e){var rect=e.target.getBoundingClientRect();var x=(e.clientX-rect.left)*(340/rect.width),y=(e.clientY-rect.top)*(160/rect.height);
     chipRects.forEach(function(c){if((x-c.x)*(x-c.x)+(y-c.y)*(y-c.y)<=c.r*c.r){denom=c.d;drawTray();tone(520,0.04);}});});
 
