@@ -1269,7 +1269,25 @@ window.SLAudio = (function () {
       return `<div class="lot-prize jp"><span>💰 ${m.name} (${m.type})</span>
         <span class="lot-cnt">${odds} · hit ${jackHits[m.name]||0} / exp ${exp.toFixed(3)}</span></div>`;
     }).join("");
-    $("lot-prizes").innerHTML = base + jp;
+    // lifetime odometer: how far the rarest real jackpot truly is
+    const rng = jackpots.filter((m) => m.p > 0).sort((a,b) => a.p - b.p)[0];
+    let odo = "";
+    if (rng) {
+      const need = Math.round(1 / rng.p);
+      const ratio = draws ? (need / draws) : 0;
+      // assume a brisk 1,200 draws/day of dedicated play
+      const days = need / 1200;
+      const human = days < 1 ? `${(days*24).toFixed(0)} h`
+                  : days < 60 ? `${days.toFixed(0)} days`
+                  : days < 730 ? `${(days/30).toFixed(1)} months`
+                  : `${(days/365).toFixed(1)} years`;
+      odo = `<div class="lot-prize jp" style="border-top:2px solid #e0a93b;margin-top:.3rem">
+        <span>📊 To expect ONE ${rng.name}</span>
+        <span class="lot-cnt">${need.toLocaleString()} draws · you've done ${draws.toLocaleString()}` +
+        (draws ? ` (${ratio>=1?ratio.toFixed(0)+"× more needed":"keep going"})` : "") +
+        ` · ~${human} of daily play</span></div>`;
+    }
+    $("lot-prizes").innerHTML = base + jp + odo;
   }
 
   function applyResult(res) {
