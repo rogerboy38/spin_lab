@@ -7,7 +7,7 @@
  "field_order": ["theme", "profile", "n_spins", "seed", "empirical_rtp", "results_json"],
  "fields": [
   {"fieldname": "theme", "fieldtype": "Link", "label": "Theme", "options": "Slot Theme", "reqd": 1},
-  {"fieldname": "profile", "fieldtype": "Select", "label": "Scoring Profile", "options": "casino_edge\nfair\nplayer_edge", "default": "fair"},
+  {"fieldname": "profile", "fieldtype": "Select", "label": "Scoring Profile", "options": "nevada_min\nloose_85\ntight_90\ncasino_edge\nfair\nplayer_edge", "default": "fair"},
   {"fieldname": "n_spins", "fieldtype": "Int", "label": "Number of Spins", "non_negative": 1},
   {"fieldname": "seed", "fieldtype": "Data", "label": "RNG Seed"},
   {"fieldname": "empirical_rtp", "fieldtype": "Float", "label": "Empirical RTP", "precision": "6"},

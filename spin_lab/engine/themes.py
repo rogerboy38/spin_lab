@@ -36,7 +36,17 @@ class Theme:
 
 # Scoring profiles: target RTP (return to player). RNG is identical for all;
 # profiles only scale the pay table.
+# Scoring profiles span real-world jurisdictional reality:
+#   nevada_min  0.75 - US Nevada legal minimum RTP (regulated floor, certified)
+#   loose_85    0.85 - loose/under-regulated market (e.g. MX has no mandated floor)
+#   tight_90    0.90 - tight but legal in stricter US states (NJ floor is 0.83)
+#   casino_edge 0.95 - typical competitive RTP
+#   fair        1.00 - zero house edge (study pure variance)
+#   player_edge 1.05 - hypothetical +EV (never offered commercially)
 SCORING_PROFILES = {
+    "nevada_min": 0.75,
+    "loose_85": 0.85,
+    "tight_90": 0.90,
     "casino_edge": 0.95,
     "fair": 1.00,
     "player_edge": 1.05,

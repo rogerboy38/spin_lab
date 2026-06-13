@@ -71,9 +71,12 @@
         <option>Stars &amp; Bars</option>
       </select>
       <select id="sl-profile" class="form-control" style="width:auto">
-        <option value="fair">fair · RTP 100%</option>
-        <option value="casino_edge">casino_edge · RTP 95%</option>
-        <option value="player_edge">player_edge · RTP 105%</option>
+        <option value="nevada_min">Nevada min · 75%</option>
+        <option value="loose_85">loose market · 85%</option>
+        <option value="tight_90">tight · 90%</option>
+        <option value="casino_edge">casino_edge · 95%</option>
+        <option value="fair" selected>fair · 100%</option>
+        <option value="player_edge">player_edge · 105%</option>
       </select>
       <select id="sl-stake" class="form-control" style="width:auto">
         <option value="0.01">stake 0.01</option>
@@ -140,10 +143,13 @@
     <h3>🌊 6×4 Video Slot <small style="color:#9aa0b5">(4096 ways to win)</small></h3>
     <div class="sl-row">
       <select id="vs-theme" class="form-control vs-ctl" style="width:auto"></select>
-      <select id="vs-profile" class="form-control" style="width:auto">
-        <option value="fair">fair · RTP 100%</option>
-        <option value="casino_edge">casino_edge · RTP 95%</option>
-        <option value="player_edge">player_edge · RTP 105%</option>
+      <select id="vs-profile" class="form-control vs-ctl" style="width:auto">
+        <option value="nevada_min">Nevada min · 75%</option>
+        <option value="loose_85">loose market · 85%</option>
+        <option value="tight_90">tight · 90%</option>
+        <option value="casino_edge">casino_edge · 95%</option>
+        <option value="fair" selected>fair · 100%</option>
+        <option value="player_edge">player_edge · 105%</option>
       </select>
       <select id="vs-stake" class="form-control" style="width:auto">
         <option value="0.1">stake 0.1</option>
@@ -193,7 +199,10 @@
       <label class="sl-stat" style="font-weight:400">cash-out goal
         <input id="gr-goal" type="number" value="100" min="2" style="width:80px" class="form-control"></label>
       <select id="gr-profile" class="form-control" style="width:auto">
-        <option value="casino_edge">casino_edge · 95%</option>
+        <option value="nevada_min">Nevada min · 75%</option>
+        <option value="loose_85">loose market · 85%</option>
+        <option value="tight_90">tight · 90%</option>
+        <option value="casino_edge" selected>casino_edge · 95%</option>
         <option value="fair">fair · 100%</option>
         <option value="player_edge">player_edge · 105%</option>
       </select>
@@ -209,6 +218,11 @@
     <p class="sl-note">Classic theorem: in a <b>fair</b> game your chance of reaching the goal before
       ruin is exactly <b>bankroll ÷ goal</b>. Any house edge bends every path downward — and the
       longer anyone plays, the closer ruin gets to certain. This is the math no strategy escapes.</p>
+    <p class="sl-note" style="border-top:1px solid #eef0f3;padding-top:.6rem">
+      <b>Jurisdiction reality:</b> US states set a <i>regulated, certified</i> minimum RTP every machine must
+      meet — Nevada <b>75%</b>, New Jersey <b>83%</b> (actual averages ~92–95%). Mexico's framework sets
+      <i>no mandated payout floor</i>, so effective RTP can sit at <b>85%</b> or lower. Compare ruin at
+      "Nevada min · 75%" vs "loose market · 85%" to see how a thinner payout speeds the end.</p>
   </div>
 
   <p class="sl-note">If you or someone you know has a gambling problem, call the

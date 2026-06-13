@@ -7,7 +7,7 @@
  "field_order": ["theme", "profile", "stake_points", "reel_1", "reel_2", "reel_3", "payout", "net"],
  "fields": [
   {"fieldname": "theme", "fieldtype": "Link", "label": "Theme", "options": "Slot Theme", "reqd": 1},
-  {"fieldname": "profile", "fieldtype": "Select", "label": "Scoring Profile", "options": "casino_edge\nfair\nplayer_edge", "default": "fair"},
+  {"fieldname": "profile", "fieldtype": "Select", "label": "Scoring Profile", "options": "nevada_min\nloose_85\ntight_90\ncasino_edge\nfair\nplayer_edge", "default": "fair"},
   {"fieldname": "stake_points", "fieldtype": "Float", "label": "Stake (virtual points)", "non_negative": 1},
   {"fieldname": "reel_1", "fieldtype": "Data", "label": "Reel 1"},
   {"fieldname": "reel_2", "fieldtype": "Data", "label": "Reel 2"},
