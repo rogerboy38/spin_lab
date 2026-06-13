@@ -52,6 +52,7 @@
         <button class="rz-btn" id="rl-view">&#9681; Oval / racetrack</button>
         <button class="rz-btn" id="rl-honest">&#128269; Honest: off</button>
         <button class="rz-btn" id="rl-syslab" style="border-color:#ff6b6b;color:#ffb3b3">&#129514; Systems Lab</button>
+        <button class="rz-btn" id="rl-house" style="display:none;border-color:#6bb8ff;color:#9fd0ff">&#127916; House view</button>
       </div>
       <div>
         <input id="rl-rename" placeholder="your name" style="width:120px"><button class="rz-btn" id="rl-setname">set</button>
@@ -71,7 +72,7 @@
 
     <div class="row" style="margin-top:1rem">
       <div class="panel" style="flex:1;min-width:300px">
-        <h2>&#129534; Your Seat</h2>
+        <h2 id="rl-seat-title">&#129534; Your Seat</h2>
         <canvas id="rl-tray" width="340" height="160" style="background:#0b3d24;border-radius:10px"></canvas>
         <div class="ctl">
           <button class="rz-btn" id="rl-repeat">&#8635; repeat last bet</button>
@@ -316,9 +317,13 @@
       if(w.balance!=null){bal=w.balance;setBal();} $("rz-name").textContent=me; $("rz-name").style.color=myColor; $("rl-rename").style.display="none"; $("rl-setname").style.display="none";
       $("rz-login").innerHTML = w.is_admin ? '<button class="rz-btn" id="rz-dealer" style="border-color:#ffd86b;color:#ffd86b">&#128081; Dealer</button>' : '<span style="color:#37e0a0;font-size:.8rem">&#9679; account</span>';
       isAdmin=!!w.is_admin;
-      if(w.is_admin){ $("rz-dealer").onclick=openDealer; }
+      if(w.is_admin){ $("rz-dealer").onclick=openDealer; $("rl-house").style.display=""; applyHouse(lsGet("rl_house","")==="1"); }
       if(!isAdmin){ var sb=$("rl-spin"); sb.textContent="\u23f3 Dealer spins the wheel"; sb.style.opacity=".55"; sb.style.cursor="not-allowed"; }
     } else { $("rz-login").innerHTML='<a class="rz-btn" href="/login?redirect-to=/roulette">Log in</a>'; } }); }
+  function applyHouse(on){ var d=on?"none":""; ["rl-tray","rl-repeat","rl-clear"].forEach(function(id){var e=$(id);if(e)e.style.display=d;});
+    var t=$("rl-seat-title"); if(t)t.innerHTML=on?"&#127916; House &mdash; dealer controls":"&#129534; Your Seat";
+    $("rl-house").style.borderColor=on?"#6bb8ff":""; $("rl-house").style.background=on?"rgba(107,184,255,.15)":""; lsSet("rl_house",on?"1":"0"); }
+  $("rl-house").onclick=function(){ applyHouse(lsGet("rl_house","")!=="1"); };
   function whenFrappe(fn){(window.frappe&&frappe.call&&(frappe.csrf_token||document.readyState==="complete"))?fn():setTimeout(function(){whenFrappe(fn);},120);}
   var actx=null;function tone(f,d,w,t,g,ef){w=w||0;t=t||"square";g=g||0.05;try{if(!actx)actx=new(window.AudioContext||window.webkitAudioContext)();if(actx.state==="suspended")actx.resume();var t0=actx.currentTime+w,o=actx.createOscillator(),gn=actx.createGain();o.type=t;o.frequency.setValueAtTime(f,t0);if(ef)o.frequency.exponentialRampToValueAtTime(ef,t0+d);gn.gain.setValueAtTime(g,t0);gn.gain.exponentialRampToValueAtTime(0.0001,t0+d);o.connect(gn);gn.connect(actx.destination);o.start(t0);o.stop(t0+d+0.05);}catch(e){}}
 
