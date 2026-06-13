@@ -395,12 +395,17 @@ window.SLAudio = (function () {
     STAR:"⭐", BAR1:"𝐁𝐀𝐑", BAR2:"𝐁𝐀𝐑²", BAR3:"𝐁𝐀𝐑³",
     // Star Nova 4096 gems
     PURPLE:"🟣", BLUE:"🔵", GREEN:"🟢", YELLOW:"🟡",
+    // Outlaw Trail / Beanstalk Walk / Mega Vines
+    WHISKEY:"🥃", HORSE:"🐴", MONEYBAG:"💰", SHERIFF:"🤠",
+    BEAN:"🫘", GOOSE:"🦢", HARP:"🎻", GIANT:"👹",
+    MONKEY:"🐒", PARROT:"🦜", JAGUAR:"🐆", IDOL:"🗿",
     // specials
     WILD:"🃏", SCATTER:"🎁",
   };
   const PREMIUM = { CRAB:1, OCTOPUS:1, SHARK:1, KRAKEN:1, WILD:1, PEARL:1,
                     SEVEN:1, DIAMOND:1, BELL:1, STAR:1, BAR1:1, BAR2:1, BAR3:1,
-                    GRAPE:1, STRAWBERRY:1, BAR:1, SCATTER:1 };
+                    GRAPE:1, STRAWBERRY:1, BAR:1, SCATTER:1,
+                    SHERIFF:1, MONEYBAG:1, GIANT:1, HARP:1, JAGUAR:1, IDOL:1 };
   const $ = (id) => document.getElementById(id);
   const ctx = $("vs-grid").getContext("2d");
   const REELS = 6, VROWS = 4, CW = 140, CH = 96, OX = 30, OY = 12;
@@ -416,21 +421,24 @@ window.SLAudio = (function () {
     const winSet = winCells || new Set();
     ctx.clearRect(0, 0, 900, 420);
     for (let r = 0; r < REELS; r++) {
-      for (let p = 0; p < VROWS; p++) {
-        const x = OX + r * CW, y = OY + p * CH;
+      const rows = grid ? grid[r].length : VROWS;          // Megaways: 2-7
+      const ch = Math.min(CH, (420 - 2 * OY) / rows);
+      for (let p = 0; p < rows; p++) {
+        const x = OX + r * CW, y = OY + p * ch;
         const sym = grid ? grid[r][p] : null;
         ctx.fillStyle = sym ? cellColor(sym, winSet, r, p) : "#f7f8fa";
         ctx.strokeStyle = "#d8dce2"; ctx.lineWidth = 1.5;
         ctx.beginPath();
-        if (ctx.roundRect) ctx.roundRect(x, y, CW - 10, CH - 8, 8); else ctx.rect(x, y, CW - 10, CH - 8);
+        if (ctx.roundRect) ctx.roundRect(x, y, CW - 10, ch - 8, 8); else ctx.rect(x, y, CW - 10, ch - 8);
         ctx.fill(); ctx.stroke();
         if (sym) {
           const icon = VICONS[sym] ?? sym;
-          ctx.font = icon.length > 2 ? "bold 22px system-ui"
-                   : /^[A-Z0-9]+$/.test(icon) ? "bold 34px Georgia" : "44px system-ui";
+          const big = Math.min(44, ch - 28), mid = Math.min(34, ch - 34);
+          ctx.font = icon.length > 2 ? `bold ${Math.min(22, ch - 40)}px system-ui`
+                   : /^[A-Z0-9]+$/.test(icon) ? `bold ${mid}px Georgia` : `${big}px system-ui`;
           ctx.fillStyle = sym === "PEARL" ? "#b8860b" : sym === "WILD" ? "#7d3c98" : "#1a1a2e";
           ctx.textAlign = "center"; ctx.textBaseline = "middle";
-          ctx.fillText(icon, x + (CW - 10) / 2, y + (CH - 8) / 2);
+          ctx.fillText(icon, x + (CW - 10) / 2, y + (ch - 8) / 2);
         }
       }
     }
@@ -461,7 +469,8 @@ window.SLAudio = (function () {
         const stopAt = 400 + r * 180;
         if (t < stopAt) {
           allDone = false;
-          g.push(Array.from({length: VROWS}, () => pool[Math.floor(Math.random() * pool.length)]));
+          const rows = finalGrid[r].length;
+          g.push(Array.from({length: rows}, () => pool[Math.floor(Math.random() * pool.length)]));
         } else {
           g.push(finalGrid[r]);
         }
@@ -513,11 +522,17 @@ window.SLAudio = (function () {
         if (res.free_spins || res.respins_used) SLAudio.freespin();
         else if (res.total_win > 0) SLAudio.win(res.total_win / res.stake);
         else SLAudio.lose();
-        if (res.respins_used) {
+        if (res.respins_used && res.locked_reels.length) {
           $("vs-fs").textContent =
             `⭐ EXPANDING WILDS — ${res.respins_used} respin(s), ` +
             `reels locked: ${res.locked_reels.map((r) => r + 1).join(",")} ` +
             `→ chain won ${res.base_win.toFixed(2)}`;
+        } else if (res.respins_used) {
+          $("vs-fs").textContent =
+            `🚶 WALKING WILDS — ${res.respins_used} respin(s) → chain won ${res.base_win.toFixed(2)}`;
+        }
+        if (res.free_spins && res.free_spins.sticky_wilds != null) {
+          $("vs-fs").textContent += `  📌 ${res.free_spins.sticky_wilds} sticky wild(s) locked`;
         }
         vsBankroll += res.net; vsSpins += 1;
         $("vs-win").textContent = res.total_win.toFixed(2);
@@ -526,7 +541,8 @@ window.SLAudio = (function () {
         $("vs-bankroll").style.color = vsBankroll < 0 ? "#c0392b" : "#1e8449";
         $("vs-count").textContent = vsSpins;
         const parts = (res.wins || []).map((w) =>
-          `${VICONS[w.symbol] ?? w.symbol}×${w.count} (${w.ways} ways)`);
+          `${VICONS[w.symbol] ?? w.symbol}×${w.count}${w.direction === "R2L" ? "←" : ""} (${w.ways} ways)`);
+        if (res.ways && res.ways !== 4096) parts.unshift(`【${res.ways.toLocaleString()} MEGAWAYS】`);
         if (res.scatters >= 3) parts.push(`🦪×${res.scatters} SCATTER`);
         $("vs-detail").textContent = parts.join("  ·  ");
         if (res.free_spins) {

@@ -12,6 +12,10 @@
   "expanding_wilds",
   "expanding_reels",
   "max_respins",
+  "both_ways",
+  "sticky_wilds_fs",
+  "walking_wilds",
+  "megaways",
   "reel_symbols",
   "pay_rules",
   "scatter_tiers",
@@ -66,6 +70,30 @@
    "depends_on": "expanding_wilds",
    "default": "3",
    "non_negative": 1
+  },
+  {
+   "fieldname": "both_ways",
+   "fieldtype": "Check",
+   "label": "Both-Ways Pays (L2R + R2L, dedup full runs)",
+   "default": "0"
+  },
+  {
+   "fieldname": "sticky_wilds_fs",
+   "fieldtype": "Check",
+   "label": "Sticky Wilds in Free Spins (DoA2-style)",
+   "default": "0"
+  },
+  {
+   "fieldname": "walking_wilds",
+   "fieldtype": "Check",
+   "label": "Walking Wilds (move left, respin while on screen)",
+   "default": "0"
+  },
+  {
+   "fieldname": "megaways",
+   "fieldtype": "Check",
+   "label": "Megaways (per-reel height 2-7 each spin)",
+   "default": "0"
   },
   {
    "fieldname": "reel_symbols",

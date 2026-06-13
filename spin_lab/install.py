@@ -53,6 +53,10 @@ def _seed_one_video_theme(cfg):
     doc.scatter_symbol = cfg["scatter"]
     doc.fs_multiplier = cfg["fs_multiplier"]
     doc.expanding_wilds = 1 if cfg.get("expanding_wilds") else 0
+    doc.both_ways = 1 if cfg.get("both_ways") else 0
+    doc.sticky_wilds_fs = 1 if cfg.get("sticky_wilds_fs") else 0
+    doc.walking_wilds = 1 if cfg.get("walking_wilds") else 0
+    doc.megaways = 1 if cfg.get("megaways") else 0
     doc.expanding_reels = ",".join(str(r + 1) for r in cfg.get("expanding_reels", ()))
     doc.max_respins = cfg.get("max_respins", 3)
     for i, counts in enumerate(cfg["reel_counts"], start=1):

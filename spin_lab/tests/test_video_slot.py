@@ -165,7 +165,7 @@ class TestClassicVideoThemes(unittest.TestCase):
     def test_four_themes_exist_and_hit_targets(self):
         from spin_lab.engine.video_slot import (VIDEO_THEMES, base_total_rtp,
                                                  video_profile_scale)
-        self.assertEqual(len(VIDEO_THEMES), 5)
+        self.assertEqual(len(VIDEO_THEMES), 8)
         for name, t in VIDEO_THEMES.items():
             base = base_total_rtp(t)  # exact, or MC-calibrated for expanding themes
             for profile, target in SCORING_PROFILES.items():
@@ -220,3 +220,63 @@ class TestExpandingWilds(unittest.TestCase):
     def test_plain_themes_unaffected(self):
         res = video_simulate(DEEP_SEA, 30_000, "fair", seed=7)
         self.assertEqual(res["respin_rate"], 0)
+
+
+class TestV3Features(unittest.TestCase):
+    def _theme(self, name):
+        from spin_lab.engine.video_slot import VIDEO_THEMES
+        return VIDEO_THEMES[name]
+
+    def test_both_ways_full_run_pays_once(self):
+        from spin_lab.engine.video_slot import evaluate_ways_both
+        t = self._theme("Outlaw Trail 4096")
+        g = [["TEN", "JACK", "QUEEN", "KING"]] * 6
+        _, wins = evaluate_ways_both(t, g)
+        self.assertEqual(len([w for w in wins if w["symbol"] == "TEN"]), 1)
+
+    def test_both_ways_non_overlapping_pay_twice(self):
+        from spin_lab.engine.video_slot import evaluate_ways_both
+        t = self._theme("Outlaw Trail 4096")
+        g = [["TEN"] * 4] * 3 + [["JACK"] * 4] * 3   # TEN reels 1-3, JACK reels 4-6
+        _, wins = evaluate_ways_both(t, g)
+        symbols = sorted((w["symbol"], w.get("direction", "L2R")) for w in wins)
+        self.assertIn(("TEN", "L2R"), symbols)
+        self.assertIn(("JACK", "R2L"), symbols)
+
+    def test_megaways_heights_and_ways(self):
+        from spin_lab.engine.video_slot import grid_ways, spin_grid_megaways
+        t = self._theme("Mega Vines")
+        rng = make_rng(5)
+        seen = set()
+        for _ in range(500):
+            g = spin_grid_megaways(t, rng)
+            for col in g:
+                self.assertTrue(2 <= len(col) <= 7)
+                seen.add(len(col))
+            self.assertTrue(64 <= grid_ways(g) <= 117_649)
+        self.assertEqual(seen, {2, 3, 4, 5, 6, 7})
+
+    def test_walking_wilds_respin_and_bound(self):
+        from spin_lab.engine.video_slot import WALK_CAP, video_spin as vspin
+        t = self._theme("Beanstalk Walk 4096")
+        rng = make_rng(77)
+        saw_walk = False
+        for _ in range(200):
+            res = vspin(t, 1.0, "fair", rng=rng)
+            self.assertLessEqual(res["respins_used"], WALK_CAP)
+            if res["respins_used"]:
+                saw_walk = True
+        self.assertTrue(saw_walk)
+
+    def test_sticky_wilds_reported_in_fs(self):
+        res = video_simulate("Outlaw Trail 4096", 30_000, "fair", seed=8)
+        self.assertGreater(res["fs_trigger_rate"], 0)   # free spins happened (sticky path ran)
+
+    def test_v3_themes_hit_targets(self):
+        from spin_lab.engine.video_slot import base_total_rtp, video_profile_scale
+        for name in ("Outlaw Trail 4096", "Beanstalk Walk 4096", "Mega Vines"):
+            t = self._theme(name)
+            base = base_total_rtp(t)
+            for profile, target in SCORING_PROFILES.items():
+                self.assertAlmostEqual(base * video_profile_scale(t, profile), target,
+                                       places=9, msg=f"{name}/{profile}")

@@ -52,6 +52,12 @@ class VideoTheme:
     expanding_wilds: bool = False
     expanding_reels: tuple[int, ...] = ()   # 0-based reel indices
     max_respins: int = 3
+    # v3 features (research notes: DoA2, Jack & the Beanstalk, BTG Megaways)
+    both_ways: bool = False          # ways evaluated L2R and R2L (dedup full runs)
+    sticky_wilds_fs: bool = False    # wilds lock for remainder of free spins
+    walking_wilds: bool = False      # wilds walk left 1 reel/respin while on screen
+    megaways: bool = False           # per-reel height drawn 2..7 each spin
+    megaways_rows: tuple[int, int] = (2, 7)
 
     @property
     def rows(self) -> int:
@@ -220,6 +226,62 @@ def count_scatters(theme: VideoTheme, grid: list[list[str]]) -> int:
     return sum(1 for reel in grid for s in reel if s == theme.scatter)
 
 
+def spin_grid_megaways(theme: VideoTheme, rng: Random) -> list[list[str]]:
+    """BTG Megaways model (research-verified): per-reel height drawn
+    independently each spin (uniform 2..7); window read from the strip."""
+    lo, hi = theme.megaways_rows
+    grid = []
+    for strip in theme.strips:
+        h = rng.randint(lo, hi)
+        stop = rng.randrange(len(strip))
+        grid.append([strip[(stop + r) % len(strip)] for r in range(h)])
+    return grid
+
+
+def _make_grid(theme: VideoTheme, rng: Random) -> list[list[str]]:
+    return spin_grid_megaways(theme, rng) if theme.megaways else spin_grid(theme, rng)
+
+
+def grid_ways(grid: list[list[str]]) -> int:
+    w = 1
+    for col in grid:
+        w *= len(col)
+    return w
+
+
+def evaluate_ways_both(theme: VideoTheme, grid: list[list[str]]) -> tuple[float, list[dict]]:
+    """Both-ways ways evaluation. Industry rule (research-verified): evaluate
+    L2R and R2L independently; if a symbol's two runs overlap (lenL + lenR >
+    reels) pay only the better direction once - full-board runs never pay twice."""
+    n = theme.reels
+    _, wins_l = evaluate_ways(theme, grid)
+    _, wins_r = evaluate_ways(theme, grid[::-1])
+    by_sym_l = {w["symbol"]: w for w in wins_l}
+    by_sym_r = {w["symbol"]: w for w in wins_r}
+    total = 0.0
+    wins = []
+    for sym in set(by_sym_l) | set(by_sym_r):
+        L, R = by_sym_l.get(sym), by_sym_r.get(sym)
+        if L and R and L["count"] + R["count"] > n:
+            best = L if L["pay"] >= R["pay"] else {**R, "direction": "R2L"}
+            wins.append(best)
+            total += best["pay"]
+        else:
+            if L:
+                wins.append(L)
+                total += L["pay"]
+            if R:
+                wins.append({**R, "direction": "R2L"})
+                total += R["pay"]
+    return total, wins
+
+
+def _eval(theme: VideoTheme, grid: list[list[str]]) -> tuple[float, list[dict]]:
+    if theme.both_ways:
+        return evaluate_ways_both(theme, grid)
+    return evaluate_ways(theme, grid)
+
+
 # --------------------------------------------------------------------------
 # Analytic RTP decomposition
 # --------------------------------------------------------------------------
@@ -308,7 +370,9 @@ def base_total_rtp(theme: VideoTheme) -> float:
     """Total RTP at scale=1. Exact for plain themes; Monte-Carlo (fixed seed,
     industry-standard approach for respin features per GLI practice) when the
     expanding-wild respin chain makes exact enumeration intractable."""
-    if not theme.expanding_wilds:
+    needs_mc = (theme.expanding_wilds or theme.both_ways or theme.sticky_wilds_fs
+                or theme.walking_wilds or theme.megaways)
+    if not needs_mc:
         return analytic_rtp(theme)["total_rtp"]
     if theme.name not in _MC_RTP_CACHE:
         rng = make_rng(20260612)
@@ -354,22 +418,32 @@ def _spin_masked(theme: VideoTheme, rng: Random, locked: set[int]) -> list[list[
     return grid
 
 
+WALK_CAP = 24  # safety cap on walking-wild respins per paid spin
+
+
 def _resolve_chain(theme: VideoTheme, stake: float, scale: float, rng: Random) -> dict:
-    """One paid spin INCLUDING the expanding-wild respin chain and any
-    free-spin rounds triggered along the way. Single source of truth used
-    by both video_spin and video_simulate."""
-    unit = stake / TOTAL_WAYS
+    """One paid spin including feature chains (expanding-wild respins OR
+    walking-wild respins) and free-spin rounds. Single source of truth for
+    video_spin and video_simulate. Pays are per-way units of
+    stake/grid_ways(grid) so Megaways grids price each way correctly."""
     locked: set[int] = set()
+    walkers: list[tuple[int, int]] = []   # (reel, row) walking wilds
     respins_used = 0
     chain = []
     ways_total = scatter_total = fs_total = 0.0
     fs_info = None
 
     while True:
-        grid = _spin_masked(theme, rng, locked)
+        grid = _make_grid(theme, rng)
+        for r in locked:
+            grid[r] = [theme.wild] * len(grid[r])
+        for (r, row) in walkers:                      # inject walking wilds
+            grid[r][min(row, len(grid[r]) - 1)] = theme.wild
         newly = apply_expanding_wilds(theme, grid, locked)
         locked |= newly
-        way_pay, wins = evaluate_ways(theme, grid)
+
+        unit = stake / grid_ways(grid)
+        way_pay, wins = _eval(theme, grid)
         n_sc = count_scatters(theme, grid)
         tier = min(n_sc, max(theme.scatter_pays)) if n_sc >= 3 else 0
         ways_win = way_pay * unit * scale
@@ -378,7 +452,9 @@ def _resolve_chain(theme: VideoTheme, stake: float, scale: float, rng: Random) -
         scatter_total += sc_win
         chain.append({"grid": grid, "wins": wins, "scatters": n_sc,
                       "win": round(ways_win + sc_win, 6),
-                      "locked_reels": sorted(locked)})
+                      "ways": grid_ways(grid),
+                      "locked_reels": sorted(locked),
+                      "walking_wilds": list(walkers)})
         if tier:
             fs = _play_free_spins(theme, theme.free_spins[tier], stake, scale, rng)
             fs_total += fs["total_win"]
@@ -389,6 +465,16 @@ def _resolve_chain(theme: VideoTheme, stake: float, scale: float, rng: Random) -
                 "retriggers": fs_info["retriggers"] + fs["retriggers"],
                 "total_win": round(fs_info["total_win"] + fs["total_win"], 6),
             }
+
+        if theme.walking_wilds:
+            # all wild cells walk one reel LEFT; respin while any remain (JatB rule)
+            cells = [(r, i) for r, col in enumerate(grid)
+                     for i, sym in enumerate(col) if sym == theme.wild]
+            walkers = [(r - 1, i) for (r, i) in cells if r - 1 >= 0]
+            if walkers and respins_used < WALK_CAP:
+                respins_used += 1
+                continue
+            break
         if newly and respins_used < theme.max_respins:
             respins_used += 1
             continue
@@ -427,6 +513,7 @@ def video_spin(
         "rows": ROWS,
         "reels": t.reels,
         "total_ways": TOTAL_WAYS,
+        "ways": r["chain"][-1]["ways"],
         "stake": stake,
         "wins": last["wins"],
         "scatters": last["scatters"],
@@ -441,15 +528,31 @@ def video_spin(
 
 
 def _play_free_spins(t: VideoTheme, n: int, stake: float, scale: float, rng: Random) -> dict:
-    unit = stake / TOTAL_WAYS
+    """Free-spin round. With sticky_wilds_fs (DoA2-style): wilds lock in place
+    for the remainder of the round; one-time +5 spins when every reel holds
+    at least one sticky wild."""
     remaining, played, total = n, 0, 0.0
     retriggers = 0
+    sticky: set[tuple[int, int]] = set()
+    sticky_bonus_awarded = False
     while remaining > 0 and played < FS_CAP:
         remaining -= 1
         played += 1
-        grid = spin_grid(t, rng)
-        apply_expanding_wilds(t, grid, set())  # expansion works in free spins too (no respin chain)
-        way_pay, _ = evaluate_ways(t, grid)
+        grid = _make_grid(t, rng)
+        for (r, row) in sticky:
+            grid[r][min(row, len(grid[r]) - 1)] = t.wild
+        apply_expanding_wilds(t, grid, set())
+        if t.sticky_wilds_fs:
+            for r, col in enumerate(grid):
+                for i, sym in enumerate(col):
+                    if sym == t.wild:
+                        sticky.add((r, i))
+            if (not sticky_bonus_awarded
+                    and all(any(c[0] == r for c in sticky) for r in range(t.reels))):
+                remaining += 5     # research: one-time bonus, all reels sticky
+                sticky_bonus_awarded = True
+        unit = stake / grid_ways(grid)
+        way_pay, _ = _eval(t, grid)
         n_sc = count_scatters(t, grid)
         tier = min(n_sc, max(t.scatter_pays)) if n_sc >= 3 else 0
         win = way_pay * unit * scale
@@ -459,7 +562,9 @@ def _play_free_spins(t: VideoTheme, n: int, stake: float, scale: float, rng: Ran
             retriggers += 1
         total += win * t.fs_multiplier
     return {"awarded": n, "played": played, "retriggers": retriggers,
-            "multiplier": t.fs_multiplier, "total_win": round(total, 6)}
+            "multiplier": t.fs_multiplier,
+            "sticky_wilds": len(sticky) if t.sticky_wilds_fs else None,
+            "total_win": round(total, 6)}
 
 
 def video_simulate(
@@ -537,6 +642,10 @@ def theme_from_config(cfg: dict) -> VideoTheme:
         expanding_wilds=bool(cfg.get("expanding_wilds", False)),
         expanding_reels=tuple(int(r) for r in cfg.get("expanding_reels", ())),
         max_respins=int(cfg.get("max_respins", 3)),
+        both_ways=bool(cfg.get("both_ways", False)),
+        sticky_wilds_fs=bool(cfg.get("sticky_wilds_fs", False)),
+        walking_wilds=bool(cfg.get("walking_wilds", False)),
+        megaways=bool(cfg.get("megaways", False)),
     )
 
 
@@ -597,9 +706,96 @@ _STAR_NOVA = theme_from_config(star_nova_config())
 VIDEO_THEMES[_STAR_NOVA.name] = _STAR_NOVA
 
 
+def _v3_base_counts(extra: dict) -> list[dict]:
+    base = {"TEN": 9, "JACK": 8, "QUEEN": 7, "KING": 6, "ACE": 6, "SCATTER": 1}
+    base.update(extra)
+    counts = []
+    for i in range(REELS):
+        c = dict(base)
+        if i not in (0,):           # no wild on reel 1
+            c["WILD"] = 2 if i < 5 else 1
+        counts.append(c)
+    return counts
+
+
+def outlaw_trail_config() -> dict:
+    """DoA2-inspired: sticky wilds in free spins + both-ways pays."""
+    return {
+        "name": "Outlaw Trail 4096",
+        "wild": "WILD", "scatter": "SCATTER", "fs_multiplier": 2.0,
+        "sticky_wilds_fs": True, "both_ways": True,
+        "reel_counts": _v3_base_counts({"WHISKEY": 4, "HORSE": 3, "MONEYBAG": 2, "SHERIFF": 1}),
+        "pay_table": {
+            "SHERIFF":  {3: 250, 4: 800, 5: 2000, 6: 5000},
+            "MONEYBAG": {3: 120, 4: 400, 5: 1000, 6: 2500},
+            "HORSE":    {3: 60, 4: 150, 5: 400, 6: 1000},
+            "WHISKEY":  {3: 40, 4: 100, 5: 250, 6: 600},
+            "ACE":      {3: 25, 4: 60, 5: 150, 6: 400},
+            "KING":     {3: 20, 4: 50, 5: 120, 6: 300},
+            "QUEEN":    {3: 15, 4: 40, 5: 100, 6: 250},
+            "JACK":     {3: 12, 4: 30, 5: 80, 6: 200},
+            "TEN":      {3: 10, 4: 25, 5: 60, 6: 150},
+        },
+        "scatter_pays": {3: 1.0, 4: 5.0, 5: 20.0, 6: 100.0},
+        "free_spins": {3: 8, 4: 12, 5: 15, 6: 20},
+    }
+
+
+def beanstalk_walk_config() -> dict:
+    """Jack & the Beanstalk-inspired: walking wilds (left, respin while on screen)."""
+    return {
+        "name": "Beanstalk Walk 4096",
+        "wild": "WILD", "scatter": "SCATTER", "fs_multiplier": 2.0,
+        "walking_wilds": True,
+        "reel_counts": _v3_base_counts({"BEAN": 4, "GOOSE": 3, "HARP": 2, "GIANT": 1}),
+        "pay_table": {
+            "GIANT": {3: 250, 4: 800, 5: 2000, 6: 5000},
+            "HARP":  {3: 120, 4: 400, 5: 1000, 6: 2500},
+            "GOOSE": {3: 60, 4: 150, 5: 400, 6: 1000},
+            "BEAN":  {3: 40, 4: 100, 5: 250, 6: 600},
+            "ACE":   {3: 25, 4: 60, 5: 150, 6: 400},
+            "KING":  {3: 20, 4: 50, 5: 120, 6: 300},
+            "QUEEN": {3: 15, 4: 40, 5: 100, 6: 250},
+            "JACK":  {3: 12, 4: 30, 5: 80, 6: 200},
+            "TEN":   {3: 10, 4: 25, 5: 60, 6: 150},
+        },
+        "scatter_pays": {3: 1.0, 4: 5.0, 5: 20.0, 6: 100.0},
+        "free_spins": {3: 8, 4: 12, 5: 15, 6: 20},
+    }
+
+
+def mega_vines_config() -> dict:
+    """BTG Megaways-inspired: per-reel height 2-7 each spin, up to 117,649 ways."""
+    return {
+        "name": "Mega Vines",
+        "wild": "WILD", "scatter": "SCATTER", "fs_multiplier": 2.0,
+        "megaways": True,
+        "reel_counts": _v3_base_counts({"MONKEY": 4, "PARROT": 3, "JAGUAR": 2, "IDOL": 1}),
+        "pay_table": {
+            "IDOL":   {3: 250, 4: 800, 5: 2000, 6: 5000},
+            "JAGUAR": {3: 120, 4: 400, 5: 1000, 6: 2500},
+            "PARROT": {3: 60, 4: 150, 5: 400, 6: 1000},
+            "MONKEY": {3: 40, 4: 100, 5: 250, 6: 600},
+            "ACE":    {3: 25, 4: 60, 5: 150, 6: 400},
+            "KING":   {3: 20, 4: 50, 5: 120, 6: 300},
+            "QUEEN":  {3: 15, 4: 40, 5: 100, 6: 250},
+            "JACK":   {3: 12, 4: 30, 5: 80, 6: 200},
+            "TEN":    {3: 10, 4: 25, 5: 60, 6: 150},
+        },
+        "scatter_pays": {3: 1.0, 4: 5.0, 5: 20.0, 6: 100.0},
+        "free_spins": {3: 8, 4: 12, 5: 15, 6: 20},
+    }
+
+
+for _cfg_fn in (outlaw_trail_config, beanstalk_walk_config, mega_vines_config):
+    _t3 = theme_from_config(_cfg_fn())
+    VIDEO_THEMES[_t3.name] = _t3
+
+
 def all_video_configs() -> list[dict]:
     """Plain configs for every code-defined theme (for DB seeding)."""
-    configs = [deep_sea_config(), star_nova_config()]
+    configs = [deep_sea_config(), star_nova_config(),
+               outlaw_trail_config(), beanstalk_walk_config(), mega_vines_config()]
     for name, syms in _CLASSIC_VIDEO_SPECS:
         t = VIDEO_THEMES[name]
         base = {sym: c for sym, c, _ in syms}

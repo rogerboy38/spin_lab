@@ -8,6 +8,10 @@ from spin_lab.engine.video_slot import REELS, analytic_rtp, theme_from_config
 
 class VideoSlotTheme(Document):
     def validate(self):
+        if self.megaways and (self.expanding_wilds or self.walking_wilds):
+            frappe.throw("Megaways cannot be combined with expanding or walking wilds.")
+        if self.expanding_wilds and self.walking_wilds:
+            frappe.throw("Choose either expanding wilds or walking wilds, not both.")
         theme = self.as_engine_theme()  # raises on structural problems
         try:
             r = analytic_rtp(theme)
@@ -70,6 +74,10 @@ class VideoSlotTheme(Document):
             {
                 "name": self.theme_name,
                 "expanding_wilds": bool(self.expanding_wilds),
+                "both_ways": bool(self.both_ways),
+                "sticky_wilds_fs": bool(self.sticky_wilds_fs),
+                "walking_wilds": bool(self.walking_wilds),
+                "megaways": bool(self.megaways),
                 "expanding_reels": expanding_reels,
                 "max_respins": self.max_respins or 3,
                 "wild": self.wild_symbol,
