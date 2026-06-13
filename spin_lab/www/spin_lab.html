@@ -118,9 +118,14 @@
 
 <script>
 // ── Synthesized sound engine (Web Audio, no files) ──────────────
-// frappe-web bundle loads deferred; inline scripts must wait for frappe.call
+// frappe-web bundle loads deferred; inline scripts must wait until
+// frappe.call exists AND the CSRF token is set (logged-in sessions reject
+// tokenless POSTs with "Invalid Request"). For guests there is no token,
+// so fall back to document fully loaded.
 window.whenFrappe = function (fn) {
-  if (window.frappe && frappe.call) fn();
+  const ready = window.frappe && frappe.call
+    && (frappe.csrf_token || document.readyState === "complete");
+  if (ready) fn();
   else setTimeout(() => window.whenFrappe(fn), 100);
 };
 
