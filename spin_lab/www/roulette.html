@@ -191,10 +191,13 @@
     for(c=0;c<11;c++)spots.push({x:X0+(c+1)*CW,y:Y0,nums:[vAt(c,0),vAt(c,1),vAt(c,2),vAt(c+1,0),vAt(c+1,1),vAt(c+1,2)]}); // six-line (top)
     spots.forEach(function(sp){spotByKey[skey(sp.nums)]=sp;});
     if(variant==="american"){
+      spots.push({x:31,y:Y0+CH*0.7,nums:[0]});                          // straight 0 (top half)
+      spots.push({x:31,y:Y0+CH*2.3,nums:[37]});                         // straight 00 (bottom half)
       spots.push({x:31,y:Y0+CH*1.5,nums:[0,37]});                       // 0/00 split (mid divider)
-      spots.push({x:54,y:Y0+CH*1.5,nums:[0,37,2]});                     // trio 0-00-2 (right corner of the zeros)
+      spots.push({x:54,y:Y0+CH*1.5,nums:[0,37,2]});                     // trio 0-00-2 (right corner)
       spots.push({x:54,y:Y0,nums:[0,37,1,2,3]});                        // top line (top-left corner)
     } else {
+      spots.push({x:31,y:Y0+CH*1.5,nums:[0]});                          // straight 0 (centre)
       spots.push({x:54,y:Y0+CH*2,nums:[0,1,2]});                        // trio 0-1-2 (lower corner)
       spots.push({x:54,y:Y0+CH,nums:[0,2,3]});                          // trio 0-2-3 (upper corner)
       spots.push({x:54,y:Y0,nums:[0,1,2,3]});                           // basket 0-1-2-3 (top corner)
