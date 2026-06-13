@@ -1211,6 +1211,7 @@ window.SLAudio = (function () {
   let cards = [], tiers = [], scale = 1, jackpots = [];
   let balance = 100, draws = 0, wins = 0, staked = 0, paid = 0;
   let jackHits = { MINI:0, MINOR:0, MAJOR:0, GRAND:0 };
+  let mhb = null, mhbValue = 0, mhbTrigger = 0;   // Must-Hit-By local meter
   let running = false;
 
   function call(method, args) {
@@ -1226,6 +1227,7 @@ window.SLAudio = (function () {
     baseUnscaled = cfg.base_rtp_unscaled;
     scale = TARGET_RTP / baseUnscaled;
     jackpots = (await call("loteria_jackpot_odds")) || [];
+    initMhb();
     drawBoard([], null);
     renderPrizes();
   }
@@ -1259,15 +1261,42 @@ window.SLAudio = (function () {
     }
   }
 
+  function initMhb() {
+    mhb = jackpots.find((m) => m.type === "Must-Hit-By");
+    if (mhb) {
+      mhbValue = mhb.value || mhb.seed || 0;
+      mhbTrigger = (mhb.seed || 0) + Math.random() * ((mhb.must_hit_max || 0) - (mhb.seed || 0));
+    }
+  }
+  // one draw's worth of jackpot evolution (stake = 1)
+  function advanceJackpots() {
+    jackpots.forEach((m) => {
+      if (m.p && Math.random() < m.p) jackHits[m.name] = (jackHits[m.name] || 0) + 1;
+    });
+    if (mhb) {
+      mhbValue += (mhb.c || 0);                 // meter rises by contribution each draw
+      if (mhbValue >= mhbTrigger) {             // guaranteed hit on crossing hidden trigger
+        jackHits[mhb.name] = (jackHits[mhb.name] || 0) + 1;
+        mhbValue = mhb.seed || 0;
+        mhbTrigger = (mhb.seed || 0) + Math.random() * ((mhb.must_hit_max || 0) - (mhb.seed || 0));
+      }
+    }
+  }
+
   function renderPrizes() {
     const base = tiers.map((t) =>
       `<div class="lot-prize"><span>${t.label}</span>
         <span class="lot-cnt">pays ${(t.pay * scale).toFixed(2)}× · ${(t.p*100).toFixed(0)}% of draws</span></div>`).join("");
     const jp = jackpots.map((m) => {
+      if (m.type === "Must-Hit-By") {
+        const span = (m.must_hit_max || 1) - (m.seed || 0);
+        const prog = span > 0 ? Math.max(0, Math.min(100, 100 * (mhbValue - (m.seed||0)) / span)) : 0;
+        return `<div class="lot-prize jp"><span>💰 ${m.name} (Must-Hit-By)</span>
+          <span class="lot-cnt">meter ${mhbValue.toFixed(0)} / max ${m.must_hit_max} · ${prog.toFixed(1)}% · hit ${jackHits[m.name]||0}</span></div>`;
+      }
       const exp = m.p ? (draws * m.p) : 0;
-      const odds = m.odds || (m.type === "Must-Hit-By" ? "hidden" : "—");
       return `<div class="lot-prize jp"><span>💰 ${m.name} (${m.type})</span>
-        <span class="lot-cnt">${odds} · hit ${jackHits[m.name]||0} / exp ${exp.toFixed(3)}</span></div>`;
+        <span class="lot-cnt">${m.odds||"—"} · hit ${jackHits[m.name]||0} / exp ${exp.toFixed(3)}</span></div>`;
     }).join("");
     // lifetime odometer: how far the rarest real jackpot truly is
     const rng = jackpots.filter((m) => m.p > 0).sort((a,b) => a.p - b.p)[0];
@@ -1316,8 +1345,7 @@ window.SLAudio = (function () {
   function single() {
     if (running || !cards.length) return;
     const r = localDraw();
-    // one authentic draw also rolls the real progressive odds
-    jackpots.forEach((m) => { if (m.p && Math.random() < m.p) jackHits[m.name] = (jackHits[m.name]||0)+1; });
+    advanceJackpots();
     drawBoard(r.marked, r.tier);
     $("lot-cantor").textContent = r.tier
       ? `¡${r.tier}! +${r.win.toFixed(2)} 🎉`
@@ -1333,8 +1361,7 @@ window.SLAudio = (function () {
     jackpots = (await call("loteria_jackpot_odds")) || jackpots;
     for (let i = 0; i < n && running; i++) {
       const r = localDraw();
-      // simulate the real progressive odds locally for the "hit" counter
-      jackpots.forEach((m) => { if (m.p && Math.random() < m.p) jackHits[m.name] = (jackHits[m.name]||0)+1; });
+      advanceJackpots();
       if (i % 12 === 0 || i === n - 1) {
         drawBoard(r.marked, r.tier);
         $("lot-cantor").textContent = `Auto… draw ${i+1}/${n} · ${r.tier ? "¡"+r.tier+"!" : "limpia"}`;
@@ -1367,6 +1394,7 @@ window.SLAudio = (function () {
     running = false;
     balance = 100; draws = 0; wins = 0; staked = 0; paid = 0;
     jackHits = { MINI:0, MINOR:0, MAJOR:0, GRAND:0 };
+    initMhb();
     $("lot-bal").innerHTML = '100.00 <small>CREDITS</small>';
     $("lot-bal").style.color = "#2ecc71";
     $("lot-draws").textContent = 0; $("lot-wins").textContent = 0; $("lot-rtp").textContent = "—";
