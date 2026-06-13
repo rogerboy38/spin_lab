@@ -320,7 +320,7 @@
     for(var k=0;k<4;k++){var bx=OCX-OS+30+k*bw; ovalSections.push({x:bx,y:by,w:bw-6,h:30,key:labels[k][0]});
       oc.fillStyle="rgba(202,168,74,.12)"; oc.fillRect(bx,by,bw-6,30); oc.strokeStyle="rgba(202,168,74,.5)"; oc.lineWidth=1; oc.strokeRect(bx,by,bw-6,30);
       oc.fillStyle="#e8d9a0"; oc.font="bold 11px system-ui"; oc.textAlign="center"; oc.textBaseline="middle"; oc.fillText(labels[k][1],bx+(bw-6)/2,by+15);}
-    oc.fillStyle="#9fe1cb"; oc.font="11px system-ui"; oc.textAlign="center"; oc.fillText("click a number = neighbours (5 chips) \u00b7 click a section = call bet",OCX,OCY-34);
+    oc.fillStyle="#9fe1cb"; oc.font="11px system-ui"; oc.textAlign="center"; oc.fillText("click a number = 1 chip \u00b7 click a section = full call bet",OCX,OCY-34);
     // numbers in wheel order along the track centreline
     var per=4*OS+2*Math.PI*OR;
     for(var i=0;i<N;i++){var n=w[i],p=trackPoint(((i+0.5)/N)*per); ovalSpots.push({x:p.x,y:p.y,n:n});
@@ -350,9 +350,11 @@
     if(sec){ var combos=SECTIONS[sec.key].map(function(co){return {kind:"inside",target:co.t,amount:denom*co.c};});
       placeMany(combos); $("rl-round").textContent=sec.key+" call bet ("+SECTIONS[sec.key].reduce(function(a,b){return a+b.c;},0)+" chips)"; return; }
     var best=null,bd=1e9; ovalSpots.forEach(function(sp){var d=(x-sp.x)*(x-sp.x)+(y-sp.y)*(y-sp.y);if(d<bd){bd=d;best=sp;}});
-    if(!best||bd>26*26)return; var nb=neighbours(best.n);
-    placeMany(nb.map(function(nn){return {kind:"inside",target:[nn],amount:denom};}));
-    $("rl-round").textContent="neighbours of "+lab(best.n)+": "+nb.map(lab).join(", "); });
+    if(!best||bd>22*22)return;
+    if(bal<denom){$("rl-round").textContent="not enough credits";return;}
+    tone(660,0.05,0,"square",0.04);
+    call("roulette_bet",{player:me,color:myColor,kind:"inside",target:JSON.stringify([best.n]),amount:denom}).then(function(r){if(!r)return; syncBal(r,-denom); if(r.bets){liveBets=r.bets;drawTable();drawTray();if(ovalMode)drawOval();}});
+    $("rl-round").textContent="straight on "+lab(best.n); });
     $("rl-honest").onclick=function(){ rHonest=!rHonest; $("rl-honest").innerHTML=rHonest?"&#128269; Honest: ON":"&#128269; Honest: off"; $("rl-honest").style.borderColor=rHonest?"#37e0a0":""; };
   $("rl-view").onclick=function(){ ovalMode=!ovalMode;
     $("rl-table").style.display=ovalMode?"none":"block"; $("rl-oval").style.display=ovalMode?"block":"none";
