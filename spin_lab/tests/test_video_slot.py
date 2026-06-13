@@ -363,3 +363,43 @@ class TestLoteria(unittest.TestCase):
         from spin_lab.engine.loteria import config
         self.assertEqual(len(config()["cards"]), 16)
         self.assertEqual(len(config()["tiers"]), 4)
+
+
+class TestRoulette(unittest.TestCase):
+    def test_wheel_and_colors(self):
+        from spin_lab.engine.roulette import WHEEL, color, POCKETS
+        self.assertEqual(POCKETS, 37)
+        self.assertEqual(len(WHEEL), 37)
+        self.assertEqual(set(WHEEL), set(range(37)))
+        self.assertEqual(color(0), "green")
+        self.assertEqual(color(1), "red")
+        self.assertEqual(color(2), "black")
+
+    def test_payouts_and_settle(self):
+        from spin_lab.engine.roulette import settle
+        bets = [{"kind": "straight", "target": 17, "amount": 1},
+                {"kind": "black", "amount": 1}, {"kind": "dozen", "target": 2, "amount": 1}]
+        r = settle(bets, 17)   # 17 is BLACK, in dozen 2 (13-24)
+        self.assertEqual(r[0]["won"], 36)
+        self.assertEqual(r[1]["won"], 2)
+        self.assertEqual(r[2]["won"], 3)
+
+    def test_zero_kills_outside(self):
+        from spin_lab.engine.roulette import settle
+        bets = [{"kind": "red", "amount": 1}, {"kind": "even", "amount": 1},
+                {"kind": "straight", "target": 0, "amount": 1}]
+        r = settle(bets, 0)
+        self.assertEqual(r[0]["won"], 0)   # red loses on 0
+        self.assertEqual(r[1]["won"], 0)   # even loses on 0
+        self.assertEqual(r[2]["won"], 36)  # straight-up 0 wins
+
+    def test_rtp_converges_to_36_37(self):
+        from spin_lab.engine.roulette import spin, settle, theoretical_rtp
+        from spin_lab.engine.rng import make_rng
+        rng = make_rng(11)
+        staked = paid = 0.0
+        for _ in range(200_000):
+            n = spin(rng)
+            staked += 1
+            paid += settle([{"kind": "red", "amount": 1}], n)[0]["won"]
+        self.assertAlmostEqual(paid / staked, theoretical_rtp(), delta=0.01)

@@ -1,0 +1,13 @@
+{
+ "doctype": "DocType", "name": "Roulette State", "module": "Spin Lab",
+ "issingle": 1, "engine": "InnoDB",
+ "field_order": ["round_no", "last_number", "recent", "live_bets"],
+ "fields": [
+  {"fieldname": "round_no", "fieldtype": "Int", "label": "Round", "default": "1"},
+  {"fieldname": "last_number", "fieldtype": "Int", "label": "Last Number", "default": "-1"},
+  {"fieldname": "recent", "fieldtype": "Long Text", "label": "Recent (JSON)"},
+  {"fieldname": "live_bets", "fieldtype": "Long Text", "label": "Live Bets (JSON)"}
+ ],
+ "permissions": [{"role": "System Manager", "read": 1, "write": 1, "create": 1, "delete": 1},{"role":"All","read":1}],
+ "owner": "Administrator", "modified": "2026-06-13 00:00:00.000000", "sort_field": "modified", "sort_order": "DESC"
+}

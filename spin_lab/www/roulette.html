@@ -1,0 +1,221 @@
+{% extends "templates/web.html" %}
+{% block title %}Spin Lab Roulette{% endblock %}
+{% block head_include %}
+<style>
+  body{background:#05050c !important}
+  .web-footer,.navbar{display:none !important}
+  #rz{min-height:100vh;background:radial-gradient(70% 60% at 50% 0%,rgba(20,80,50,.25),transparent 60%),#05050c;
+    color:#f3f0ff;font-family:system-ui,sans-serif;padding-bottom:3rem}
+  .rz-bar{position:sticky;top:0;display:flex;align-items:center;gap:1rem;padding:.7rem 1.2rem;
+    background:rgba(8,8,20,.85);backdrop-filter:blur(8px);border-bottom:1px solid rgba(255,216,107,.2);z-index:10}
+  .rz-brand{font-weight:900;letter-spacing:.16em;background:linear-gradient(90deg,#ffd86b,#37e0a0,#3ad7ff);
+    -webkit-background-clip:text;background-clip:text;color:transparent}
+  .rz-bar .sp{flex:1}
+  .rz-btn{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.16);color:#e9e6ff;border-radius:999px;
+    padding:.4rem .9rem;cursor:pointer;font-weight:700;font-size:.85rem;text-decoration:none}
+  .rz-btn:hover{border-color:#ffd86b;color:#ffd86b}
+  .wrap{max-width:1100px;margin:0 auto;padding:1rem}
+  .row{display:flex;gap:1.2rem;flex-wrap:wrap;align-items:flex-start;justify-content:center}
+  .panel{background:rgba(10,12,22,.7);border:1px solid rgba(255,216,107,.18);border-radius:18px;padding:1rem;text-align:center}
+  canvas{display:block;max-width:100%}
+  .felt{background:linear-gradient(180deg,#0b3d24,#072a18);border:3px solid #c9a227;border-radius:12px;padding:8px}
+  h2{margin:.2rem 0 .8rem;font-weight:800}
+  .big{font-size:2.4rem;font-weight:900;font-variant-numeric:tabular-nums}
+  .recent span{display:inline-block;min-width:26px;padding:2px 4px;margin:2px;border-radius:6px;font-weight:800;font-size:.8rem;color:#fff}
+  .r-red{background:#c0392b}.r-black{background:#222}.r-green{background:#1e8e4f}
+  .ctl{display:flex;gap:.6rem;flex-wrap:wrap;justify-content:center;align-items:center;margin:.8rem 0}
+  .ctl input{background:#15152e;color:#f3f0ff;border:1px solid #34335e;border-radius:8px;padding:.4rem .6rem}
+  .spinbtn{background:linear-gradient(180deg,#37e0a0,#1e8e4f);color:#042014;border:none;border-radius:999px;
+    font-weight:900;font-size:1.05rem;letter-spacing:.05em;padding:.7rem 1.8rem;cursor:pointer;box-shadow:0 6px 20px rgba(30,142,79,.5)}
+  .note{color:#8c88b5;font-size:.82rem;margin-top:.8rem;max-width:760px;margin-left:auto;margin-right:auto}
+  .you{color:#ffd86b;font-weight:800}
+  table.lead{margin:.5rem auto;border-collapse:collapse;font-size:.85rem}
+  table.lead td,table.lead th{padding:.25rem .7rem;border-bottom:1px solid #23233f}
+</style>
+{% endblock %}
+{% block page_content %}
+<div id="rz">
+  <div class="rz-bar">
+    <span class="rz-brand">&#127919; SPIN LAB ROULETTE</span>
+    <span class="sp"></span>
+    <span>You: <b class="you" id="rz-name">—</b> &middot; <span id="rz-bal" class="you">1000.00</span> cr</span>
+    <a class="rz-btn" href="/casino">&#8962; Casino</a>
+    <a class="rz-btn" href="/spin-lab">&#128202; Lab</a>
+  </div>
+
+  <div class="wrap">
+    <div class="row">
+      <div class="panel">
+        <h2>&#127922; The Wheel</h2>
+        <div class="felt" style="display:inline-block"><canvas id="rl-wheel" width="360" height="360"></canvas></div>
+        <div class="big" id="rl-result">&mdash;</div>
+        <div style="display:flex;gap:1.2rem;justify-content:center;font-size:.85rem">
+          <div><div style="color:#ff6b6b;font-weight:800">HOT</div><div id="rl-hot"></div></div>
+          <div><div style="color:#3ad7ff;font-weight:800">COLD</div><div id="rl-cold"></div></div>
+        </div>
+        <div class="recent" id="rl-recent" style="margin-top:.5rem"></div>
+      </div>
+
+      <div class="panel" style="flex:1;min-width:300px">
+        <h2>&#129534; Your Seat</h2>
+        <div class="felt" style="display:inline-block"><canvas id="rl-tray" width="340" height="220"></canvas></div>
+        <div class="ctl">
+          <input id="rl-rename" placeholder="your name" style="width:120px">
+          <button class="rz-btn" id="rl-setname">set</button>
+          <button class="rz-btn" id="rl-clear">clear my bets</button>
+        </div>
+        <button class="spinbtn" id="rl-spin">SPIN THE WHEEL</button>
+        <div id="rl-round" style="color:#8c88b5;font-size:.8rem;margin-top:.4rem"></div>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-top:1.2rem">
+      <h2>&#129001; The Table <small style="color:#8c88b5">— shared by every seat</small></h2>
+      <div class="felt" style="display:inline-block;overflow-x:auto"><canvas id="rl-table" width="786" height="250"></canvas></div>
+      <div id="rl-players"></div>
+      <p class="note">Single-zero European wheel: 37 pockets, but a straight-up pays 35:1 (a fair game pays 36:1).
+        That one green 0 sets RTP = 36/37 = <b>97.30%</b> on every bet — the house edge, identical no matter what you back.
+        Hot/cold numbers are pure noise: the wheel has no memory.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  var $=function(id){return document.getElementById(id);};
+  var WHEEL=[0,32,15,19,4,21,2,25,17,34,6,27,13,36,11,30,8,23,10,5,24,16,33,1,20,14,31,9,22,18,29,7,28,12,35,3,26];
+  var RED=new Set([1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36]);
+  function col(n){return n===0?"green":(RED.has(n)?"red":"black");}
+  function colHex(n){return n===0?"#1e8e4f":(RED.has(n)?"#c0392b":"#1c1c1c");}
+
+  // ── player identity (per browser/seat) ──
+  function lsGet(k,d){try{return localStorage.getItem(k)||d;}catch(e){return d;}}
+  function lsSet(k,v){try{localStorage.setItem(k,v);}catch(e){}}
+  var PAL=["#ffd86b","#ff6b6b","#3ad7ff","#37e0a0","#c792ea","#ff9f43","#f368e0","#48dbfb"];
+  var me=lsGet("rl_name",""); if(!me){me="Seat-"+(1000+Math.floor(Math.random()*9000));lsSet("rl_name",me);}
+  var myColor=lsGet("rl_color",""); if(!myColor){myColor=PAL[Math.floor(Math.random()*PAL.length)];lsSet("rl_color",myColor);}
+  var bal=parseFloat(lsGet("rl_bal","1000"))||1000;
+  var denom=5, denoms=[1,5,25,100];
+  function setBal(){bal=Math.round(bal*100)/100;lsSet("rl_bal",bal);$("rz-bal").textContent=bal.toFixed(2);}
+  $("rz-name").textContent=me; $("rz-name").style.color=myColor; setBal();
+  $("rl-rename").value=me;
+  $("rl-setname").onclick=function(){var v=$("rl-rename").value.trim().slice(0,24); if(v){me=v;lsSet("rl_name",me);$("rz-name").textContent=me;}};
+
+  function call(m,a){return new Promise(function(r){frappe.call({method:"spin_lab.api.roulette."+m,args:a||{},callback:function(x){r(x.message);},error:function(){r(null);}});});}
+  function whenFrappe(fn){(window.frappe&&frappe.call&&(frappe.csrf_token||document.readyState==="complete"))?fn():setTimeout(function(){whenFrappe(fn);},120);}
+
+  // ── audio ──
+  var actx=null;function tone(f,d,w,t,g,ef){w=w||0;t=t||"square";g=g||0.05;try{if(!actx)actx=new(window.AudioContext||window.webkitAudioContext)();if(actx.state==="suspended")actx.resume();var t0=actx.currentTime+w,o=actx.createOscillator(),gn=actx.createGain();o.type=t;o.frequency.setValueAtTime(f,t0);if(ef)o.frequency.exponentialRampToValueAtTime(ef,t0+d);gn.gain.setValueAtTime(g,t0);gn.gain.exponentialRampToValueAtTime(0.0001,t0+d);o.connect(gn);gn.connect(actx.destination);o.start(t0);o.stop(t0+d+0.05);}catch(e){}}
+
+  // ═══ WHEEL ═══
+  var wc=$("rl-wheel").getContext("2d"), ballAngle=0, spinning=false;
+  function drawWheel(highlight){ var W=360,R=170,cx=180,cy=180,N=37,step=2*Math.PI/N;
+    wc.clearRect(0,0,W,W);
+    for(var i=0;i<N;i++){ var n=WHEEL[i],a0=i*step-Math.PI/2,a1=a0+step;
+      wc.beginPath();wc.moveTo(cx,cy);wc.arc(cx,cy,R,a0,a1);wc.closePath();
+      wc.fillStyle=colHex(n);wc.fill();wc.strokeStyle="#c9a227";wc.lineWidth=1;wc.stroke();
+      if(highlight===n){wc.save();wc.globalAlpha=.5;wc.fillStyle="#ffd86b";wc.fill();wc.restore();}
+      var am=a0+step/2;wc.save();wc.translate(cx+Math.cos(am)*(R-16),cy+Math.sin(am)*(R-16));wc.rotate(am+Math.PI/2);
+      wc.fillStyle="#fff";wc.font="bold 11px system-ui";wc.textAlign="center";wc.fillText(n,0,0);wc.restore(); }
+    wc.beginPath();wc.arc(cx,cy,52,0,7);wc.fillStyle="#0a0a18";wc.fill();wc.strokeStyle="#c9a227";wc.lineWidth=2;wc.stroke();
+    // ball
+    var bx=cx+Math.cos(ballAngle)*(R-30),by=cy+Math.sin(ballAngle)*(R-30);
+    wc.beginPath();wc.arc(bx,by,7,0,7);wc.fillStyle="#fff";wc.fill();wc.strokeStyle="#aaa";wc.stroke();
+    // pointer
+    wc.beginPath();wc.moveTo(cx,cy-R-2);wc.lineTo(cx-8,cy-R-14);wc.lineTo(cx+8,cy-R-14);wc.closePath();wc.fillStyle="#ffd86b";wc.fill(); }
+  function spinWheelTo(n,done){ spinning=true; var idx=WHEEL.indexOf(n),step=2*Math.PI/37;
+    var target=idx*step-Math.PI/2+step/2, turns=5*2*Math.PI, start=performance.now(),dur=3400, from=ballAngle;
+    (function f(now){ var t=Math.min(1,(now-start)/dur),e=1-Math.pow(1-t,3);
+      ballAngle=from+(turns+ (target-((from)%(2*Math.PI))))*e;
+      drawWheel(t>0.98?n:null); if(t<1){ if(Math.random()<.3)tone(900,0.02,0,"square",0.02); requestAnimationFrame(f);} else {spinning=false;done&&done();} })(start); }
+
+  // ═══ TABLE (zones) ═══
+  var zones=[]; (function buildZones(){
+    var CW=52,CH=46,x0=58,y0=8;
+    zones.push({x:8,y:y0,w:46,h:CH*3,kind:"straight",target:0,label:"0",fill:"#1e8e4f"});
+    for(var c=0;c<12;c++)for(var r=0;r<3;r++){ var n=c*3+(3-r);
+      zones.push({x:x0+c*CW,y:y0+r*CH,w:CW,h:CH,kind:"straight",target:n,label:""+n,fill:colHex(n)}); }
+    var colT=[3,2,1]; for(var r2=0;r2<3;r2++) zones.push({x:x0+12*CW,y:y0+r2*CH,w:46,h:CH,kind:"column",target:colT[r2],label:"2:1",fill:"#0b3d24"});
+    var dy=y0+3*CH; for(var d=0;d<3;d++) zones.push({x:x0+d*4*CW,y:dy,w:4*CW,h:38,kind:"dozen",target:d+1,label:["1st 12","2nd 12","3rd 12"][d],fill:"#0b3d24"});
+    var ey=dy+38, ew=2*CW; var em=[["low","1-18"],["even","EVEN"],["red","RED"],["black","BLACK"],["odd","ODD"],["high","19-36"]];
+    for(var k=0;k<6;k++) zones.push({x:x0+k*ew,y:ey,w:ew,h:38,kind:em[k][0],target:null,label:em[k][1],fill:em[k][0]==="red"?"#7a241b":em[k][0]==="black"?"#161616":"#0b3d24"}); })();
+  var tc=$("rl-table").getContext("2d"), liveBets=[];
+  function drawTable(){ tc.clearRect(0,0,786,250);
+    zones.forEach(function(z){ tc.fillStyle=z.fill; tc.fillRect(z.x,z.y,z.w-2,z.h-2);
+      tc.strokeStyle="rgba(255,255,255,.25)";tc.lineWidth=1;tc.strokeRect(z.x,z.y,z.w-2,z.h-2);
+      if(z.label){tc.fillStyle="#fff";tc.font=(z.kind==="straight"&&z.target!==0)?"bold 14px system-ui":"bold 12px system-ui";
+        tc.textAlign="center";tc.textBaseline="middle";tc.save();
+        if(z.h>z.w){tc.translate(z.x+z.w/2,z.y+z.h/2);tc.rotate(-Math.PI/2);tc.fillText(z.label,0,0);}else tc.fillText(z.label,z.x+z.w/2,z.y+z.h/2);
+        tc.restore();} });
+    // chips: group by zone+player
+    var grp={}; liveBets.forEach(function(b){ var key=b.kind+":"+b.target; (grp[key]=grp[key]||[]).push(b); });
+    Object.keys(grp).forEach(function(key){ var arr=grp[key],z=zoneOf(arr[0]); if(!z)return;
+      var byP={}; arr.forEach(function(b){byP[b.player]=(byP[b.player]||0)+b.amount; });
+      var pl=Object.keys(byP),i=0; pl.forEach(function(p){ var amt=byP[p],cx=z.x+z.w/2+(i%3-1)*9,cy=z.y+z.h/2+(Math.floor(i/3))*9;
+        var c=(arr.find(function(b){return b.player===p;})||{}).color||"#ffd86b";
+        tc.beginPath();tc.arc(cx,cy,11,0,7);tc.fillStyle=c;tc.fill();
+        tc.lineWidth=p===me?3:1.5;tc.strokeStyle=p===me?"#fff":"rgba(0,0,0,.5)";tc.stroke();
+        tc.fillStyle="#111";tc.font="bold 9px system-ui";tc.textAlign="center";tc.textBaseline="middle";tc.fillText(amt>=100?"99+":(""+Math.round(amt)),cx,cy); i++; }); }); }
+  function zoneOf(b){ return zones.find(function(z){return z.kind===b.kind && (""+z.target)===(""+b.target);}); }
+  $("rl-table").addEventListener("click",function(e){ if(spinning)return; var rect=e.target.getBoundingClientRect();
+    var sx=786/rect.width, sy=250/rect.height, x=(e.clientX-rect.left)*sx, y=(e.clientY-rect.top)*sy;
+    var z=zones.find(function(z){return x>=z.x&&x<=z.x+z.w&&y>=z.y&&y<=z.y+z.h;}); if(!z)return;
+    if(bal<denom){flash("not enough credits");return;}
+    bal-=denom; setBal(); tone(660,0.05,0,"square",0.04);
+    call("roulette_bet",{player:me,color:myColor,kind:z.kind,target:z.target,amount:denom}).then(function(r){ if(r&&r.bets){liveBets=r.bets;drawTable();} }); });
+
+  // ═══ TRAY ═══
+  var trc=$("rl-tray").getContext("2d"), chipRects=[];
+  function drawTray(){ trc.clearRect(0,0,340,220); chipRects=[];
+    trc.fillStyle="#cfeede";trc.font="bold 13px system-ui";trc.textAlign="left";trc.fillText("Pick a chip:",16,26);
+    var CC=["#9e9e9e","#e74c3c","#27ae60","#2c3e50"];
+    denoms.forEach(function(d,i){ var cx=46+i*72,cy=66,r=28; chipRects.push({x:cx,y:cy,r:r,d:d});
+      trc.beginPath();trc.arc(cx,cy,r,0,7);trc.fillStyle=CC[i];trc.fill();
+      trc.lineWidth=denom===d?5:2;trc.strokeStyle=denom===d?"#ffd86b":"rgba(255,255,255,.5)";trc.stroke();
+      trc.fillStyle="#fff";trc.font="bold 15px system-ui";trc.textAlign="center";trc.textBaseline="middle";trc.fillText(d,cx,cy); });
+    // my bets summary
+    trc.fillStyle="#cfeede";trc.font="bold 13px system-ui";trc.textAlign="left";trc.textBaseline="alphabetic";
+    var mine=liveBets.filter(function(b){return b.player===me;}); var tot=mine.reduce(function(a,b){return a+b.amount;},0);
+    trc.fillText("Your bets this round: "+mine.length+" · "+tot.toFixed(0)+" cr at risk",16,128);
+    trc.fillStyle="#8fbfa6";trc.font="11px system-ui";
+    var line=mine.slice(0,6).map(function(b){return (b.kind==="straight"?("#"+b.target):b.kind)+":"+b.amount;}).join("  ");
+    trc.fillText(line||"(click the table to place chips)",16,150);
+    trc.fillStyle=myColor;trc.beginPath();trc.arc(24,182,8,0,7);trc.fill();
+    trc.fillStyle="#cfeede";trc.fillText("that's you on the shared table",40,186); }
+  $("rl-tray").addEventListener("click",function(e){ var rect=e.target.getBoundingClientRect();
+    var x=(e.clientX-rect.left)*(340/rect.width), y=(e.clientY-rect.top)*(220/rect.height);
+    chipRects.forEach(function(c){ if((x-c.x)*(x-c.x)+(y-c.y)*(y-c.y)<=c.r*c.r){denom=c.d;drawTray();tone(520,0.04);} }); });
+
+  function flash(msg){ $("rl-round").textContent=msg; setTimeout(refreshRound,1500); }
+  function refreshRound(){ call("roulette_state").then(applyState); }
+
+  $("rl-clear").onclick=function(){ var mine=liveBets.filter(function(b){return b.player===me;});
+    bal+=mine.reduce(function(a,b){return a+b.amount;},0); setBal();
+    call("roulette_clear",{player:me}).then(function(r){ if(r&&r.bets){liveBets=r.bets;drawTable();drawTray();} }); };
+
+  $("rl-spin").onclick=function(){ if(spinning)return;
+    call("roulette_spin").then(function(res){ if(!res)return;
+      spinWheelTo(res.number,function(){
+        $("rl-result").textContent=res.number+" "+res.color.toUpperCase();
+        $("rl-result").style.color=colHex(res.number);
+        tone(res.color==="green"?300:520,0.3,0,"sawtooth",0.06);
+        var meRow=(res.players||[]).find(function(p){return p.player===me;});
+        if(meRow){ bal+=meRow.won; setBal(); if(meRow.won>0)[523,659,784].forEach(function(f,i){tone(f,0.15,i*0.1,"square",0.05);}); }
+        $("rl-players").innerHTML = (res.players&&res.players.length)?
+          ("<table class='lead'><tr><th>seat</th><th>staked</th><th>won</th><th>net</th></tr>"+
+           res.players.map(function(p){return "<tr><td style='color:"+(p.color||'#fff')+"'>"+p.player+(p.player===me?" (you)":"")+"</td><td>"+p.staked.toFixed(0)+"</td><td>"+p.won.toFixed(0)+"</td><td style='color:"+(p.net>=0?'#37e0a0':'#ff6b6b')+"'>"+(p.net>=0?'+':'')+p.net.toFixed(0)+"</td></tr>";}).join("")+"</table>")
+          : "<div style='color:#8c88b5'>no bets that round</div>";
+        liveBets=[]; drawTable(); drawTray(); refreshRound();
+      }); }); };
+
+  function applyState(s){ if(!s)return; liveBets=s.bets||[]; drawTable(); drawTray();
+    $("rl-round").textContent="Round "+s.round_no+" · place your chips, then SPIN";
+    $("rl-recent").innerHTML=(s.recent||[]).map(function(n){return "<span class='r-"+col(n)+"'>"+n+"</span>";}).join("");
+    $("rl-hot").innerHTML=(s.hot||[]).map(function(h){return "<span class='r-"+col(h.n)+"'>"+h.n+"</span>";}).join("");
+    $("rl-cold").innerHTML=(s.cold||[]).map(function(h){return "<span class='r-"+col(h.n)+"'>"+h.n+"</span>";}).join(""); }
+
+  whenFrappe(function(){ drawWheel(null); drawTable(); drawTray(); refreshRound();
+    setInterval(function(){ if(!spinning) call("roulette_state").then(applyState); },1800); });
+})();
+</script>
+{% endblock %}
