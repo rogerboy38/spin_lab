@@ -284,9 +284,10 @@
           for(var r=0;r<6;r++){ var st=380+r*150; if(t<st){done=false;g.push(Array.from({length:res.grid[r].length},function(){return pool[Math.floor(Math.random()*pool.length)];}));} else g.push(res.grid[r]); }
           drawSlots(g,new Set()); done?finish():requestAnimationFrame(anim); })(start); } }); }
 
-  var lotCards=[],lotTiers=[],lotScale=1,lotBase=1,lotInit=false,lotBal=100,lotDraws=0,lotWins=0,lotLdw=0,lotRunning=false,lotHonest=false;
+  var lotCards=[],lotTiers=[],lotScale=1,lotBase=1,lotInit=false,lotStart=1000,lotDraws=0,lotWins=0,lotLdw=0,lotRunning=false,lotHonest=false;
   var lotLast={marked:[],tier:null}, lotCoins=[];
   function initLot(){ if(lotInit)return; lotInit=true;
+    lotStart=credits;
     call("loteria_config").then(function(cfg){ if(!cfg)return; lotCards=cfg.cards;lotTiers=cfg.tiers;lotBase=cfg.base_rtp_unscaled;
       setLotRtp(+$("lot-rtp").value); drawLot([],null); });
     $("lot-rtp").onchange=function(e){lotRunning=false;setLotRtp(+e.target.value);};
@@ -294,7 +295,7 @@
     $("lot-100").onclick=function(){lotAutoRun(100);}; $("lot-1000").onclick=function(){lotAutoRun(1000);};
     $("lot-honest").onclick=function(){ lotHonest=!lotHonest; $("lot-honest").innerHTML=(lotHonest?"🔍 Honest: ON":"🔍 Honest: off");
       $("lot-honest").style.borderColor=lotHonest?"#37e0a0":""; $("lot-ldw").style.display=lotHonest?"block":"none"; updateLdw(); };
-    $("lot-reset").onclick=function(){lotRunning=false;lotBal=100;lotDraws=0;lotWins=0;lotLdw=0;$("lot-stat").textContent="";$("lot-cantor").textContent="El cantor espera…";updateLdw();drawLot([],null);}; }
+    $("lot-reset").onclick=function(){lotRunning=false;lotStart=credits;lotDraws=0;lotWins=0;lotLdw=0;$("lot-stat").textContent="";$("lot-cantor").textContent="El cantor espera…";updateLdw();drawLot([],null);}; }
   function updateLdw(){ var pct=lotWins?Math.round(100*lotLdw/lotWins):0;
     $("lot-ldw").innerHTML="📉 Losses disguised as wins: <b>"+lotLdw+"</b> of "+lotWins+" \"wins\" ("+pct+"%) paid back ≤ your bet"; }
   function classify(win){ if(win>1.0001)return["WIN","#37e0a0"]; if(win>0.0001)return[Math.abs(win-1)<0.01?"PUSH":"LDW",Math.abs(win-1)<0.01?"#ffd86b":"#ff6b6b"]; return["LOSS","#9a96bf"]; }
@@ -304,7 +305,7 @@
       lotCoins.forEach(function(p){p.x+=p.vx;p.y+=p.vy;p.vy+=0.28;p.life--;c.globalAlpha=Math.max(0,Math.min(1,p.life/22));c.font="22px system-ui";c.textAlign="center";c.fillText("🪙",p.x,p.y);c.globalAlpha=1;});
       lotCoins=lotCoins.filter(function(p){return p.life>0;}); if(lotCoins.length)requestAnimationFrame(frame); })(); }
   function setLotRtp(v){ lotScale=v/lotBase; var up=v>=1;
-    $("lot-cantor").innerHTML=up?"RTP "+Math.round(v*100)+"% — keep feasting on your "+lotBal.toFixed(2)+".":"RTP "+Math.round(v*100)+"% — same cards. Now watch your "+lotBal.toFixed(2)+" bleed away.";
+    $("lot-cantor").innerHTML=up?"RTP "+Math.round(v*100)+"% — keep feasting on your "+credits.toFixed(2)+" credits.":"RTP "+Math.round(v*100)+"% — same cards. Now watch your "+credits.toFixed(2)+" credits bleed away.";
     $("lot-cantor").className=up?"green":"red"; }
   function drawLot(marked,tier){ var c=$("lot-cv").getContext("2d"),pad=8,S=(520-pad*5)/4,ms=new Set(marked);
     c.clearRect(0,0,520,520);
@@ -320,7 +321,7 @@
     for(var k=0;k<n;k++)mk.push(idx.splice(Math.random()*idx.length|0,1)[0]);
     var roll=Math.random(),cum=0,win=0,tier=null; for(var ti=0;ti<lotTiers.length;ti++){var t=lotTiers[ti];cum+=t.p;if(roll<cum){win=t.pay*lotScale;tier=t.label;break;}}
     return{marked:mk.sort(function(a,b){return a-b;}),tier:tier,win:win}; }
-  function lotApply(r,quiet){ var net=r.win-1; lotBal+=net;lotDraws++; if(r.win>0)lotWins++;
+  function lotApply(r,quiet){ var net=r.win-1; lotDraws++; if(r.win>0)lotWins++;
     if(r.win>0.0001&&r.win<0.9999)lotLdw++;
     credits+=net; setCredits();
     var k=classify(r.win);
@@ -334,13 +335,13 @@
       $("lot-cantor").innerHTML = r.tier ? "¡"+r.tier+"! +"+r.win.toFixed(2)+" 🎉" : "Se fue limpia…";
       $("lot-cantor").style.color=""; $("lot-cantor").className=r.win>0?"green":"";
     }
-    $("lot-stat").textContent="balance "+lotBal.toFixed(2)+" · draws "+lotDraws+" · wins "+lotWins; }
+    var pnl=credits-lotStart; $("lot-stat").textContent="credits "+credits.toFixed(2)+" · this session "+(pnl>=0?"+":"")+pnl.toFixed(2)+" · draws "+lotDraws+" · wins "+lotWins; }
   function lotDraw(){ if(lotRunning)return; var r=lotLocal(); lotLast={marked:r.marked,tier:r.tier}; drawLot(r.marked,r.tier);
     if(r.win>0){ SFX.win(Math.max(1,r.win)); $("lot-frame").classList.remove("flash"); void $("lot-frame").offsetWidth; $("lot-frame").classList.add("flash");
       lotFloat("+"+r.win.toFixed(2)); lotCoinBurst(r.win>=4?16:8); } else SFX.lose();
     lotApply(r); }
   function lotAutoRun(n){ if(lotRunning)return; lotRunning=true;
-    (function loop(i){ if(i>=n||!lotRunning){lotRunning=false;updateLdw();$("lot-cantor").innerHTML=n+" draws · you're "+(lotBal>=100?"UP":"DOWN")+" "+(lotBal-100).toFixed(2);$("lot-cantor").className=lotBal>=100?"green":"red";return;}
+    (function loop(i){ if(i>=n||!lotRunning){lotRunning=false;updateLdw();var pnl=credits-lotStart;$("lot-cantor").innerHTML=n+" draws · this session you're "+(pnl>=0?"UP":"DOWN")+" "+Math.abs(pnl).toFixed(2);$("lot-cantor").className=pnl>=0?"green":"red";return;}
       var r=lotLocal(); lotLast={marked:r.marked,tier:r.tier};
       if(i%10===0||i===n-1){drawLot(r.marked,r.tier);lotApply(r);setTimeout(function(){loop(i+1);},n>200?6:35);}
       else{lotApply(r);loop(i+1);} })(0); }
