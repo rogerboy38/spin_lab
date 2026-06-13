@@ -119,6 +119,7 @@
   function acc(m,a){return new Promise(function(r){frappe.call({method:"spin_lab.api.casino_accounts."+m,args:a||{},callback:function(x){r(x.message);},error:function(){r(null);}});});}
   var serverWallet=false;
   function walletDelta(d,cb){ if(serverWallet){ acc("adjust",{delta:d}).then(function(r){ if(r){bal=r.balance;setBal();} if(cb)cb(); }); } else { bal+=d; setBal(); if(cb)cb(); } }
+  function syncBal(r,guestDelta){ if(r&&r.balance!=null){ bal=r.balance; setBal(); } else { bal+=guestDelta; setBal(); } }
   function initAccount(){ acc("whoami").then(function(w){ if(w&&!w.guest){ serverWallet=true; me=w.name; myColor=w.color||myColor;
       if(w.balance!=null){bal=w.balance;setBal();} $("rz-name").textContent=me; $("rz-name").style.color=myColor; $("rl-rename").style.display="none"; $("rl-setname").style.display="none";
       $("rz-login").innerHTML = w.is_admin ? '<a class="rz-btn" href="/casino-admin" style="border-color:#ffd86b;color:#ffd86b">&#128081; Dealer</a>' : '<span style="color:#37e0a0;font-size:.8rem">&#9679; account</span>';
@@ -179,13 +180,16 @@
     var ey=dy+38,ew=2*CW,em=[["low","1-18"],["even","EVEN"],["red","RED"],["black","BLACK"],["odd","ODD"],["high","19-36"]];
     for(var k=0;k<6;k++)zones.push({x:X0+k*ew,y:ey,w:ew,h:38,kind:em[k][0],target:em[k][0],label:em[k][1],fill:em[k][0]==="red"?"#7a241b":em[k][0]==="black"?"#161616":"#0b3d24"});
     buildSpots();}
-  function buildSpots(){ spots=[]; var c,r;
+  var spotByKey={};
+  function skey(nums){return nums.slice().sort(function(a,b){return a-b;}).join("-");}
+  function buildSpots(){ spots=[]; spotByKey={}; var c,r;
     for(c=0;c<12;c++)for(r=0;r<3;r++){var n=vAt(c,r);spots.push({x:X0+c*CW+CW/2,y:Y0+r*CH+CH/2,nums:[n]});}      // straight
     for(c=0;c<11;c++)for(r=0;r<3;r++)spots.push({x:X0+(c+1)*CW,y:Y0+r*CH+CH/2,nums:[vAt(c,r),vAt(c+1,r)]});       // h-split
     for(c=0;c<12;c++)for(r=0;r<2;r++)spots.push({x:X0+c*CW+CW/2,y:Y0+(r+1)*CH,nums:[vAt(c,r),vAt(c,r+1)]});       // v-split
     for(c=0;c<11;c++)for(r=0;r<2;r++)spots.push({x:X0+(c+1)*CW,y:Y0+(r+1)*CH,nums:[vAt(c,r),vAt(c+1,r),vAt(c,r+1),vAt(c+1,r+1)]}); // corner
     for(c=0;c<12;c++)spots.push({x:X0+c*CW+CW/2,y:Y0,nums:[vAt(c,0),vAt(c,1),vAt(c,2)]});                          // street (top edge)
     for(c=0;c<11;c++)spots.push({x:X0+(c+1)*CW,y:Y0,nums:[vAt(c,0),vAt(c,1),vAt(c,2),vAt(c+1,0),vAt(c+1,1),vAt(c+1,2)]}); // six-line (top)
+    spots.forEach(function(sp){spotByKey[skey(sp.nums)]=sp;});
     if(variant==="american"){
       spots.push({x:31,y:Y0+CH*1.5,nums:[0,37]});                       // 0/00 split
       spots.push({x:54,y:Y0+CH*2.4,nums:[0,37,2]});                     // trio 0-00-2
@@ -194,9 +198,11 @@
       spots.push({x:54,y:Y0+CH*2.2,nums:[0,1,2]});                      // trio 0-1-2
       spots.push({x:54,y:Y0+CH*1.4,nums:[0,2,3]});                      // trio 0-2-3
       spots.push({x:54,y:Y0,nums:[0,1,2,3]});                           // basket 0-1-2-3
-    }}
+    }
+    spots.forEach(function(sp){spotByKey[skey(sp.nums)]=sp;});}
   function tnorm(t){return (t===null||t===undefined||t==="")?"":(""+t);}
-  function betPos(b){ if(b.kind==="inside"){ var xs=0,ys=0,k=0; b.target.forEach(function(t){var c=numCenter[(t===37||t==="00")?"00":(""+t)];if(c){xs+=c.x;ys+=c.y;k++;}}); return k?{x:xs/k,y:ys/k}:null; }
+  function betPos(b){ if(b.kind==="inside"){ var sp=spotByKey[skey(b.target.map(function(t){return (t==="00")?37:t;}))]; if(sp)return {x:sp.x,y:sp.y};
+      var xs=0,ys=0,k=0; b.target.forEach(function(t){var c=numCenter[(t===37||t==="00")?"00":(""+t)];if(c){xs+=c.x;ys+=c.y;k++;}}); return k?{x:xs/k,y:ys/k}:null; }
     var z=zones.find(function(z){return z.kind===b.kind&&tnorm(z.target)===tnorm(b.target);}); return z?{x:z.x+z.w/2,y:z.y+z.h/2}:null; }
   function betKey(b){ return b.kind==="inside" ? ("inside:"+b.target.slice().sort(function(a,c){return a-c;}).join("-")) : (b.kind+":"+b.target); }
   function drawTable(){ tc.clearRect(0,0,760,250);
@@ -216,7 +222,7 @@
     else{var best=null,bd=1e9;spots.forEach(function(sp){var d=(x-sp.x)*(x-sp.x)+(y-sp.y)*(y-sp.y);if(d<bd){bd=d;best=sp;}});if(!best||bd>26*26)return;kind="inside";target=best.nums;}
     tone(660,0.05,0,"square",0.04);
     var sendT=(kind==="inside")?JSON.stringify(target):target;
-    walletDelta(-denom,function(){call("roulette_bet",{player:me,color:myColor,kind:kind,target:sendT,amount:denom}).then(function(r){if(r&&r.bets){liveBets=r.bets;drawTable();drawTray();}});});});
+    call("roulette_bet",{player:me,color:myColor,kind:kind,target:sendT,amount:denom}).then(function(r){if(!r)return; syncBal(r,-denom); if(r.bets){liveBets=r.bets;drawTable();drawTray();}});});
 
   // TRAY
   var trc=$("rl-tray").getContext("2d"),chipRects=[];
@@ -238,19 +244,24 @@
   $("rl-am").onclick=function(){switchVariant("american");};
 
   function refreshRound(){ call("roulette_state").then(applyState); }
-  $("rl-clear").onclick=function(){var mine=liveBets.filter(function(b){return b.player===me;});walletDelta(mine.reduce(function(a,b){return a+b.amount;},0));call("roulette_clear",{player:me}).then(function(r){if(r&&r.bets){liveBets=r.bets;drawTable();drawTray();}});};
+  $("rl-clear").onclick=function(){var refund=liveBets.filter(function(b){return b.player===me;}).reduce(function(a,b){return a+b.amount;},0);call("roulette_clear",{player:me}).then(function(r){if(r){syncBal(r,refund); if(r.bets){liveBets=r.bets;drawTable();drawTray();}}});};
   var lastMine=[];
   $("rl-repeat").onclick=function(){ if(spinning||!lastMine.length)return;
     var queue=lastMine.slice();
     (function place(i){ if(i>=queue.length)return; var b=queue[i];
       if(bal<b.amount){ $("rl-round").textContent="not enough credits to repeat all"; return; }
-      walletDelta(-b.amount,function(){call("roulette_bet",{player:me,color:myColor,kind:b.kind,target:b.target,amount:b.amount}).then(function(r){ if(r&&r.bets){liveBets=r.bets;drawTable();drawTray();} place(i+1); });}); })(0);
+      var st=(b.kind==="inside")?JSON.stringify(b.target):b.target;
+      call("roulette_bet",{player:me,color:myColor,kind:b.kind,target:st,amount:b.amount}).then(function(r){ if(r){syncBal(r,-b.amount); if(r.bets){liveBets=r.bets;drawTable();drawTray();}} place(i+1); }); })(0);
     tone(620,0.05); };
   $("rl-spin").onclick=function(){if(spinning)return;
     lastMine=liveBets.filter(function(b){return b.player===me;}).map(function(b){return {kind:b.kind,target:b.target,amount:b.amount};});
     call("roulette_spin").then(function(res){if(!res)return;
     spinWheelTo(res.number,function(){$("rl-result").textContent=lab(res.number)+" "+res.color.toUpperCase();$("rl-result").style.color=colHex(res.number);tone(res.color==="green"?300:520,0.3,0,"sawtooth",0.06);
-      var meRow=(res.players||[]).find(function(p){return p.player===me;});if(meRow&&meRow.won>0){walletDelta(meRow.won);[523,659,784].forEach(function(f,i){tone(f,0.15,i*0.1,"square",0.05);});}
+      var meRow=(res.players||[]).find(function(p){return p.player===me;});
+      if(meRow){ if(meRow.balance!=null){bal=meRow.balance;setBal();} else if(meRow.won>0){bal+=meRow.won;setBal();}
+        if(meRow.net>0){ [523,659,784,1047].forEach(function(f,i){tone(f,0.16,i*0.1,"square",0.05);});
+          $("rl-result").innerHTML=lab(res.number)+" "+res.color.toUpperCase()+' &mdash; <span style="color:#37e0a0">YOU WON +'+meRow.net.toFixed(0)+' &#127881;</span>';
+        } else if(meRow.staked>0){ tone(200,0.3,0,"sawtooth",0.05); } }
       $("rl-players").innerHTML=(res.players&&res.players.length)?("<table class='lead'><tr><th>seat</th><th>staked</th><th>won</th><th>net</th></tr>"+res.players.map(function(p){return "<tr><td style='color:"+(p.color||'#fff')+"'>"+p.player+(p.player===me?" (you)":"")+"</td><td>"+p.staked.toFixed(0)+"</td><td>"+p.won.toFixed(0)+"</td><td style='color:"+(p.net>=0?'#37e0a0':'#ff6b6b')+"'>"+(p.net>=0?'+':'')+p.net.toFixed(0)+"</td></tr>";}).join("")+"</table>"):"<div style='color:#8c88b5'>no bets that round</div>";
       winNum=res.number;liveBets=[];drawTable();drawTray();refreshRound();});});};
 
@@ -276,7 +287,7 @@
     if(!best||bd>30*30)return; var nb=neighbours(best.n);
     if(bal<denom*nb.length){$("rl-round").textContent="need "+(denom*nb.length)+" cr for a neighbours bet";return;}
     tone(640,0.05); var q=nb.slice();
-    (function place(i){ if(i>=q.length)return; walletDelta(-denom,function(){ call("roulette_bet",{player:me,color:myColor,kind:"inside",target:JSON.stringify([q[i]]),amount:denom}).then(function(r){if(r&&r.bets){liveBets=r.bets;drawTable();drawTray();} place(i+1);}); }); })(0);
+    (function place(i){ if(i>=q.length)return; call("roulette_bet",{player:me,color:myColor,kind:"inside",target:JSON.stringify([q[i]]),amount:denom}).then(function(r){if(r){syncBal(r,-denom); if(r.bets){liveBets=r.bets;drawTable();drawTray();}} place(i+1);}); })(0);
     $("rl-round").textContent="neighbours of "+lab(best.n)+": "+nb.map(lab).join(", "); });
   $("rl-view").onclick=function(){ ovalMode=!ovalMode;
     $("rl-table").style.display=ovalMode?"none":"block"; $("rl-oval").style.display=ovalMode?"block":"none";

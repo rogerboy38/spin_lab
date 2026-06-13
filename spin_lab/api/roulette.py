@@ -59,23 +59,45 @@ def roulette_bet(player, color, kind, amount, target=None):
         frappe.throw("Bad bet kind")
     s = _state()
     bets = _load(s, "live_bets", [])
-    # canonical target: numeric kinds keep their target; even-money use the kind
     if kind in ("red", "black", "odd", "even", "low", "high"):
         target = kind
+    # server-authoritative wallet: deduct now, in the same call that records
+    # the bet — so a stake can never be lost without a bet on the table.
+    user = frappe.session.user
+    balance = None
+    if user != "Guest":
+        from spin_lab.api.casino_accounts import _ensure_account
+        if not frappe.db.exists("Casino Account", {"user": user}):
+            _ensure_account(user)
+        cur = frappe.db.get_value("Casino Account", {"user": user}, "balance") or 0
+        if amount > cur:
+            frappe.throw("Insufficient credits")
+        balance = round(cur - amount, 2)
+        frappe.db.set_value("Casino Account", {"user": user}, "balance", balance, update_modified=False)
     bets.append({"player": str(player)[:24], "color": str(color)[:16],
-                 "kind": kind, "target": target, "amount": amount})
+                 "kind": kind, "target": target, "amount": amount,
+                 "user": None if user == "Guest" else user})
     s.db_set("live_bets", json.dumps(bets), update_modified=False)
     frappe.db.commit()
-    return {"ok": True, "bets": bets}
+    return {"ok": True, "bets": bets, "balance": balance}
 
 
 @frappe.whitelist(allow_guest=True)
 def roulette_clear(player):
     s = _state()
-    bets = [b for b in _load(s, "live_bets", []) if b.get("player") != player]
-    s.db_set("live_bets", json.dumps(bets), update_modified=False)
+    all_bets = _load(s, "live_bets", [])
+    mine = [b for b in all_bets if b.get("player") == player]
+    rest = [b for b in all_bets if b.get("player") != player]
+    user = frappe.session.user
+    balance = None
+    if user != "Guest":
+        refund = sum(b["amount"] for b in mine if b.get("user") == user)
+        cur = frappe.db.get_value("Casino Account", {"user": user}, "balance") or 0
+        balance = round(cur + refund, 2)
+        frappe.db.set_value("Casino Account", {"user": user}, "balance", balance, update_modified=False)
+    s.db_set("live_bets", json.dumps(rest), update_modified=False)
     frappe.db.commit()
-    return {"ok": True, "bets": bets}
+    return {"ok": True, "bets": rest, "balance": balance}
 
 
 @frappe.whitelist(allow_guest=True)
@@ -97,10 +119,16 @@ def roulette_spin():
     variant = s.variant or "european"
     n = rl.spin(variant, make_rng())
     settled = rl.settle(bets, n)
-    # per-player totals
+    # credit each bet's owning account server-side (atomic with the spin)
+    for b in settled:
+        u = b.get("user")
+        if u and b["won"] > 0:
+            cur = frappe.db.get_value("Casino Account", {"user": u}, "balance") or 0
+            frappe.db.set_value("Casino Account", {"user": u}, "balance",
+                                round(cur + b["won"], 2), update_modified=False)
     players = {}
     for b in settled:
-        p = players.setdefault(b["player"], {"staked": 0.0, "won": 0.0, "color": b.get("color")})
+        p = players.setdefault(b["player"], {"staked": 0.0, "won": 0.0, "color": b.get("color"), "user": b.get("user")})
         p["staked"] += b["amount"]
         p["won"] += b["won"]
     recent = ([n] + _load(s, "recent", []))[:RECENT_CAP]
@@ -114,5 +142,8 @@ def roulette_spin():
         "settled": settled,
         "players": [{"player": k, "staked": round(v["staked"], 2),
                      "won": round(v["won"], 2), "net": round(v["won"] - v["staked"], 2),
-                     "color": v["color"]} for k, v in players.items()],
+                     "color": v["color"],
+                     "balance": (frappe.db.get_value("Casino Account", {"user": v["user"]}, "balance")
+                                 if v.get("user") else None)}
+                    for k, v in players.items()],
     }
