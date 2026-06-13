@@ -154,6 +154,7 @@
       <button id="lot-call" class="btn sl-btn">¡Llamar! (1 draw)</button>
       <button id="lot-100" class="btn sl-btn vs-ctl">Auto ×100</button>
       <button id="lot-1000" class="btn sl-btn vs-ctl">Auto ×1000</button>
+      <button id="lot-reset" class="btn sl-btn vs-ctl" title="back to 100 credits">↺ Reset</button>
     </div>
     <div id="lot-cantor">El cantor espera… press ¡Llamar!</div>
     <div id="lot-frame"><canvas id="lot-canvas" width="544" height="544"></canvas></div>
@@ -1338,17 +1339,24 @@ window.SLAudio = (function () {
     $("lot-rtp-tag").innerHTML = up
       ? "the house is paying <b>you</b> to be here. Win after win."
       : "the food is gone — now the house takes a little on <b>every</b> draw.";
-    // fresh start so each scenario reads cleanly
+    // KEEP the balance: get fat on free food, then watch the gate close on it
+    $("lot-cantor").textContent = up
+      ? `RTP now ${Math.round(v*100)}% — keep feasting on your ${balance.toFixed(2)}.`
+      : `RTP dropped to ${Math.round(v*100)}% — same cards, same lights. Now run Auto and watch your ${balance.toFixed(2)} bleed away.`;
+    renderPrizes();
+  }
+  function resetStage() {
+    running = false;
     balance = 100; draws = 0; wins = 0; staked = 0; paid = 0;
     jackHits = { MINI:0, MINOR:0, MAJOR:0, GRAND:0 };
     $("lot-bal").innerHTML = '100.00 <small>CREDITS</small>';
     $("lot-bal").style.color = "#2ecc71";
     $("lot-draws").textContent = 0; $("lot-wins").textContent = 0; $("lot-rtp").textContent = "—";
-    $("lot-cantor").textContent = up ? "El cantor espera… press ¡Llamar!"
-                                     : "Same cards. Same lights. Now the math is against you.";
+    $("lot-cantor").textContent = "El cantor espera… press ¡Llamar!";
     drawBoard([], null); renderPrizes();
   }
   $("lot-rtp-sel").addEventListener("change", (e) => { running = false; applyRtp(parseFloat(e.target.value)); });
+  $("lot-reset").addEventListener("click", resetStage);
 
   $("lot-call").addEventListener("click", single);
   $("lot-100").addEventListener("click", () => auto(100));
