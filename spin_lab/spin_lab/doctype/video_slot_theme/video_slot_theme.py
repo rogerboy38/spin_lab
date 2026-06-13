@@ -29,7 +29,9 @@ class VideoSlotTheme(Document):
                 "scatter_share": round(r["scatter_rtp"] / r["total_rtp"], 4),
                 "free_spins_share": round(r["free_spins_rtp"] / r["total_rtp"], 4),
                 "p_free_spin_trigger": round(r["p_free_spin_trigger"], 6),
-                "note": "Profiles scale pays so total RTP hits 95/100/105% exactly.",
+                "note": "Profiles scale pays so total RTP hits 95/100/105% exactly."
+                        + (" Expanding-wild respin RTP is Monte-Carlo calibrated at runtime."
+                           if self.expanding_wilds else ""),
             },
             indent=1,
         )
@@ -54,9 +56,22 @@ class VideoSlotTheme(Document):
             free_spins[row.scatters] = row.free_spins or 0
         if not scatter_pays:
             frappe.throw("Add at least one scatter tier (e.g. 3 scatters)")
+        expanding_reels = ()
+        if self.expanding_wilds and (self.expanding_reels or "").strip():
+            try:
+                expanding_reels = tuple(
+                    int(x) - 1 for x in self.expanding_reels.split(",") if x.strip()
+                )
+            except ValueError:
+                frappe.throw("Expanding Reels must be comma-separated reel numbers, e.g. 2,3,4,5")
+            if any(not 0 <= r < REELS for r in expanding_reels):
+                frappe.throw(f"Expanding reels must be between 1 and {REELS}")
         return theme_from_config(
             {
                 "name": self.theme_name,
+                "expanding_wilds": bool(self.expanding_wilds),
+                "expanding_reels": expanding_reels,
+                "max_respins": self.max_respins or 3,
                 "wild": self.wild_symbol,
                 "scatter": self.scatter_symbol,
                 "fs_multiplier": self.fs_multiplier or 2.0,

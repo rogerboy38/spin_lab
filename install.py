@@ -52,9 +52,6 @@ def _seed_one_video_theme(cfg):
     doc.wild_symbol = cfg["wild"]
     doc.scatter_symbol = cfg["scatter"]
     doc.fs_multiplier = cfg["fs_multiplier"]
-    doc.expanding_wilds = 1 if cfg.get("expanding_wilds") else 0
-    doc.expanding_reels = ",".join(str(r + 1) for r in cfg.get("expanding_reels", ()))
-    doc.max_respins = cfg.get("max_respins", 3)
     for i, counts in enumerate(cfg["reel_counts"], start=1):
         for sym, n in counts.items():
             doc.append("reel_symbols", {"reel": i, "symbol": sym, "count": n})

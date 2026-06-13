@@ -39,6 +39,7 @@
         <option value="10">stake 10</option>
       </select>
       <button id="sl-spin" class="btn btn-primary sl-btn">SPIN</button>
+      <button id="sl-mute" class="btn btn-secondary sl-btn" title="toggle sound">🔊</button>
     </div>
 
     <canvas id="sl-reels" width="560" height="170"></canvas>
@@ -116,11 +117,53 @@
 </div>
 
 <script>
+// ── Synthesized sound engine (Web Audio, no files) ──────────────
+window.SLAudio = (function () {
+  let ctx = null, muted = false;
+  function ac() {
+    if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
+    if (ctx.state === "suspended") ctx.resume();
+    return ctx;
+  }
+  function tone(freq, dur, when = 0, type = "square", gain = 0.05, endFreq) {
+    if (muted) return;
+    try {
+      const a = ac(), t0 = a.currentTime + when;
+      const o = a.createOscillator(), g = a.createGain();
+      o.type = type; o.frequency.setValueAtTime(freq, t0);
+      if (endFreq) o.frequency.exponentialRampToValueAtTime(endFreq, t0 + dur);
+      g.gain.setValueAtTime(gain, t0);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+      o.connect(g); g.connect(a.destination);
+      o.start(t0); o.stop(t0 + dur + 0.05);
+    } catch (e) { /* audio unavailable */ }
+  }
+  return {
+    spin(n = 14, step = 0.07) {
+      for (let i = 0; i < n; i++) tone(160 + (i % 3) * 25, 0.04, i * step, "triangle", 0.025);
+    },
+    stop(i = 0) { tone(320 + i * 60, 0.08, 0, "square", 0.06); },
+    win(mult = 1) {
+      const notes = mult >= 20 ? [523, 659, 784, 1047, 1319, 1568]
+                  : mult >= 5  ? [523, 659, 784, 1047]
+                  : [523, 784];
+      notes.forEach((f, i) => tone(f, 0.18, i * 0.11, "square", 0.06));
+    },
+    lose() { tone(220, 0.12, 0, "triangle", 0.02, 180); },
+    freespin() {
+      [392, 494, 587, 784, 587, 784, 988].forEach((f, i) => tone(f, 0.15, i * 0.09, "sawtooth", 0.05));
+    },
+    toggle(btn) { muted = !muted; if (btn) btn.textContent = muted ? "🔇" : "🔊"; },
+  };
+})();
+
 (function () {
   const ICONS = {
     CHERRY:"🍒", LEMON:"🍋", PLUM:"🟣", ORANGE:"🍊", GRAPE:"🍇",
     BLANK:"·", BELL:"🔔", BAR:"BAR", SEVEN:"7️⃣", DIAMOND:"💎",
     STAR:"⭐", BAR1:"BAR", BAR2:"2BAR", BAR3:"3BAR",
+    PURPLE:"🟪", BLUE:"🟦", GREEN:"🟩", ORANGE2:"🟧", YELLOW:"🟨",
+    STRAWBERRY:"🍓", SCATTER:"🎁",
   };
   const THEME_SYMBOLS = {
     "Classic Fruits": ["CHERRY","LEMON","PLUM","ORANGE","GRAPE"],
@@ -134,7 +177,7 @@
   let bankroll = 0, spins = 0, spinning = false;
   let sessionHits = {}, sessionWindow = 0;
 
-  function drawReels(symbols, highlight) {
+  function drawReels(symbols, highlight, winLine) {
     const c = reels, W = 560, H = 170;
     c.clearRect(0, 0, W, H);
     for (let i = 0; i < 3; i++) {
@@ -152,12 +195,26 @@
       c.textAlign = "center"; c.textBaseline = "middle";
       c.fillText(icon, x + 80, 88);
     }
+    if (winLine) {
+      c.strokeStyle = "#f5a623"; c.lineWidth = 5; c.globalAlpha = 0.85;
+      c.beginPath(); c.moveTo(10, 88); c.lineTo(W - 10, 88); c.stroke();
+      c.globalAlpha = 1;
+      for (let i = 0; i < 3; i++) {
+        c.strokeStyle = "#f5a623"; c.lineWidth = 4;
+        c.beginPath();
+        if (c.roundRect) c.roundRect(20 + i * 180, 15, 160, 140, 12);
+        else c.rect(20 + i * 180, 15, 160, 140);
+        c.stroke();
+      }
+    }
   }
 
   function animateSpin(finalReels, done) {
     const theme = $("sl-theme").value;
     const pool = THEME_SYMBOLS[theme];
     const stops = [600, 1000, 1400]; // staggered stop per reel (ms)
+    SLAudio.spin();
+    stops.forEach((ms, i) => setTimeout(() => SLAudio.stop(i), ms));
     const start = performance.now();
     const current = [null, null, null];
     (function frame(now) {
@@ -189,6 +246,12 @@
       stake_points: parseFloat($("sl-stake").value),
     }, (res) => {
       animateSpin(res.reels, () => {
+        if (res.payout > 0) {
+          drawReels(res.reels, true, true);
+          SLAudio.win(res.payout / res.stake);
+        } else {
+          SLAudio.lose();
+        }
         bankroll += res.net; spins += 1;
         sessionWindow += 1;
         const key = res.reels.join("|");
@@ -295,6 +358,8 @@
     });
   });
 
+  $("sl-mute").addEventListener("click", () => SLAudio.toggle($("sl-mute")));
+
   $("sl-theme").addEventListener("change", () => {
     sessionHits = {}; sessionWindow = 0;
     drawReels(["—", "—", "—"]);
@@ -362,6 +427,8 @@
 
   function animateVideo(finalGrid, done) {
     const pool = Object.keys(VICONS);
+    SLAudio.spin(20, 0.07);
+    for (let r = 0; r < REELS; r++) setTimeout(() => SLAudio.stop(r), 400 + r * 180);
     const start = performance.now();
     (function frame(now) {
       const t = now - start;
@@ -420,6 +487,15 @@
     }, (res) => {
       animateVideo(res.grid, () => {
         drawGrid(res.grid, winCellsOf(res.grid, res.wins));
+        if (res.free_spins || res.respins_used) SLAudio.freespin();
+        else if (res.total_win > 0) SLAudio.win(res.total_win / res.stake);
+        else SLAudio.lose();
+        if (res.respins_used) {
+          $("vs-fs").textContent =
+            `⭐ EXPANDING WILDS — ${res.respins_used} respin(s), ` +
+            `reels locked: ${res.locked_reels.map((r) => r + 1).join(",")} ` +
+            `→ chain won ${res.base_win.toFixed(2)}`;
+        }
         vsBankroll += res.net; vsSpins += 1;
         $("vs-win").textContent = res.total_win.toFixed(2);
         $("vs-win").style.color = res.total_win > 0 ? "#1e8449" : "#1a1a2e";

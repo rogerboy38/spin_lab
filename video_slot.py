@@ -46,12 +46,6 @@ class VideoTheme:
     scatter_pays: dict[int, float]           # n scatters -> multiplier of total bet
     free_spins: dict[int, int]               # n scatters -> spins awarded
     fs_multiplier: float = 2.0
-    # Expanding-wild respin feature (Starburst-style; see research notes):
-    # a wild visible on an eligible reel expands to cover the reel, locks,
-    # and grants a respin of the unlocked reels (chain capped at max_respins).
-    expanding_wilds: bool = False
-    expanding_reels: tuple[int, ...] = ()   # 0-based reel indices
-    max_respins: int = 3
 
     @property
     def rows(self) -> int:
@@ -300,112 +294,17 @@ def analytic_rtp(theme: VideoTheme) -> dict:
     }
 
 
-_MC_RTP_CACHE: dict[str, float] = {}
-_MC_CALIBRATION_SPINS = 120_000
-
-
-def base_total_rtp(theme: VideoTheme) -> float:
-    """Total RTP at scale=1. Exact for plain themes; Monte-Carlo (fixed seed,
-    industry-standard approach for respin features per GLI practice) when the
-    expanding-wild respin chain makes exact enumeration intractable."""
-    if not theme.expanding_wilds:
-        return analytic_rtp(theme)["total_rtp"]
-    if theme.name not in _MC_RTP_CACHE:
-        rng = make_rng(20260612)
-        paid = 0.0
-        for _ in range(_MC_CALIBRATION_SPINS):
-            paid += _resolve_chain(theme, 1.0, 1.0, rng)["total_win"]
-        _MC_RTP_CACHE[theme.name] = paid / _MC_CALIBRATION_SPINS
-    return _MC_RTP_CACHE[theme.name]
-
-
 def video_profile_scale(theme: VideoTheme, profile: str) -> float:
-    """Scale applied to all pays so total RTP hits the profile target.
-    (Pays scale linearly through base, scatter, free-spin and respin terms.)"""
+    """Scale applied to all pays so total RTP hits the profile target exactly.
+    (Pays scale linearly through base, scatter and free-spin terms.)"""
     if profile not in SCORING_PROFILES:
         raise ValueError(f"Unknown scoring profile: {profile}")
-    return SCORING_PROFILES[profile] / base_total_rtp(theme)
+    return SCORING_PROFILES[profile] / analytic_rtp(theme)["total_rtp"]
 
 
 # --------------------------------------------------------------------------
 # Playable spin (resolves free spins inline) and simulation
 # --------------------------------------------------------------------------
-
-def apply_expanding_wilds(theme: VideoTheme, grid: list[list[str]],
-                          locked: set[int]) -> set[int]:
-    """Expand any eligible reel showing a wild to a full wild reel.
-    Mutates grid; returns the set of NEWLY locked reel indices.
-    (Per research: expansion happens after reels stop, BEFORE win evaluation.)"""
-    newly: set[int] = set()
-    if not theme.expanding_wilds:
-        return newly
-    for r in theme.expanding_reels:
-        if r not in locked and any(sym == theme.wild for sym in grid[r]):
-            grid[r] = [theme.wild] * ROWS
-            newly.add(r)
-    return newly
-
-
-def _spin_masked(theme: VideoTheme, rng: Random, locked: set[int]) -> list[list[str]]:
-    """Spin unlocked reels; locked reels stay full wild (feature-assigned)."""
-    grid = spin_grid(theme, rng)
-    for r in locked:
-        grid[r] = [theme.wild] * ROWS
-    return grid
-
-
-def _resolve_chain(theme: VideoTheme, stake: float, scale: float, rng: Random) -> dict:
-    """One paid spin INCLUDING the expanding-wild respin chain and any
-    free-spin rounds triggered along the way. Single source of truth used
-    by both video_spin and video_simulate."""
-    unit = stake / TOTAL_WAYS
-    locked: set[int] = set()
-    respins_used = 0
-    chain = []
-    ways_total = scatter_total = fs_total = 0.0
-    fs_info = None
-
-    while True:
-        grid = _spin_masked(theme, rng, locked)
-        newly = apply_expanding_wilds(theme, grid, locked)
-        locked |= newly
-        way_pay, wins = evaluate_ways(theme, grid)
-        n_sc = count_scatters(theme, grid)
-        tier = min(n_sc, max(theme.scatter_pays)) if n_sc >= 3 else 0
-        ways_win = way_pay * unit * scale
-        sc_win = theme.scatter_pays.get(tier, 0.0) * stake * scale if tier else 0.0
-        ways_total += ways_win
-        scatter_total += sc_win
-        chain.append({"grid": grid, "wins": wins, "scatters": n_sc,
-                      "win": round(ways_win + sc_win, 6),
-                      "locked_reels": sorted(locked)})
-        if tier:
-            fs = _play_free_spins(theme, theme.free_spins[tier], stake, scale, rng)
-            fs_total += fs["total_win"]
-            fs_info = fs if fs_info is None else {
-                **fs_info,
-                "awarded": fs_info["awarded"] + fs["awarded"],
-                "played": fs_info["played"] + fs["played"],
-                "retriggers": fs_info["retriggers"] + fs["retriggers"],
-                "total_win": round(fs_info["total_win"] + fs["total_win"], 6),
-            }
-        if newly and respins_used < theme.max_respins:
-            respins_used += 1
-            continue
-        break
-
-    total = ways_total + scatter_total + fs_total
-    return {
-        "chain": chain,
-        "respins_used": respins_used,
-        "locked_reels": sorted(locked),
-        "ways_win": ways_total,
-        "scatter_win": scatter_total,
-        "fs_win": fs_total,
-        "free_spins": fs_info,
-        "total_win": total,
-    }
-
 
 def video_spin(
     theme: str | VideoTheme,
@@ -413,30 +312,40 @@ def video_spin(
     profile: str = "fair",
     rng: Random | None = None,
 ) -> dict:
-    """One paid spin (resolves expanding-wild respins and free spins inline)."""
+    """One paid spin. If scatters trigger free spins, the whole bonus round
+    is resolved immediately and included in the result."""
     t = resolve_video_theme(theme)
     if stake <= 0:
         raise ValueError("stake must be positive")
     rng = rng or make_rng()
     scale = video_profile_scale(t, profile)
-    r = _resolve_chain(t, stake, scale, rng)
-    last = r["chain"][-1]
+    unit = stake / TOTAL_WAYS  # bet per way
+
+    grid = spin_grid(t, rng)
+    way_pay, wins = evaluate_ways(t, grid)
+    n_sc = count_scatters(t, grid)
+    tier = min(n_sc, max(t.scatter_pays)) if n_sc >= 3 else 0
+    scatter_pay = t.scatter_pays.get(tier, 0.0) * stake if tier else 0.0
+    base_win = way_pay * unit * scale + scatter_pay * scale
+
+    fs_result = None
+    if tier:
+        fs_result = _play_free_spins(t, t.free_spins[tier], stake, scale, rng)
+
+    total_win = base_win + (fs_result["total_win"] if fs_result else 0.0)
     return {
         "theme": t.name,
-        "grid": last["grid"],
+        "grid": grid,
         "rows": ROWS,
         "reels": t.reels,
         "total_ways": TOTAL_WAYS,
         "stake": stake,
-        "wins": last["wins"],
-        "scatters": last["scatters"],
-        "base_win": round(r["ways_win"] + r["scatter_win"], 6),
-        "respins_used": r["respins_used"],
-        "locked_reels": r["locked_reels"],
-        "chain_wins": [c["win"] for c in r["chain"]],
-        "free_spins": r["free_spins"],
-        "total_win": round(r["total_win"], 6),
-        "net": round(r["total_win"] - stake, 6),
+        "wins": wins,
+        "scatters": n_sc,
+        "base_win": round(base_win, 6),
+        "free_spins": fs_result,
+        "total_win": round(total_win, 6),
+        "net": round(total_win - stake, 6),
     }
 
 
@@ -448,7 +357,6 @@ def _play_free_spins(t: VideoTheme, n: int, stake: float, scale: float, rng: Ran
         remaining -= 1
         played += 1
         grid = spin_grid(t, rng)
-        apply_expanding_wilds(t, grid, set())  # expansion works in free spins too (no respin chain)
         way_pay, _ = evaluate_ways(t, grid)
         n_sc = count_scatters(t, grid)
         tier = min(n_sc, max(t.scatter_pays)) if n_sc >= 3 else 0
@@ -472,25 +380,32 @@ def video_simulate(
     t = resolve_video_theme(theme)
     rng = make_rng(seed)
     scale = video_profile_scale(t, profile)
+    unit = stake / TOTAL_WAYS
 
     staked = paid = base_paid = fs_paid = scatter_paid = 0.0
-    hits = triggers = respin_events = 0
+    hits = triggers = 0
     bankroll, path = 0.0, []
 
     for _ in range(n_spins):
         staked += stake
-        r = _resolve_chain(t, stake, scale, rng)
-        base_paid += r["ways_win"]
-        scatter_paid += r["scatter_win"]
-        fs_paid += r["fs_win"]
-        if r["free_spins"]:
+        grid = spin_grid(t, rng)
+        way_pay, _ = evaluate_ways(t, grid)
+        n_sc = count_scatters(t, grid)
+        tier = min(n_sc, max(t.scatter_pays)) if n_sc >= 3 else 0
+        win = way_pay * unit * scale
+        base_paid += win
+        if tier:
+            sp = t.scatter_pays[tier] * stake * scale
+            scatter_paid += sp
+            win += sp
+            fs = _play_free_spins(t, t.free_spins[tier], stake, scale, rng)
+            fs_paid += fs["total_win"]
+            win += fs["total_win"]
             triggers += 1
-        if r["respins_used"]:
-            respin_events += 1
-        if r["total_win"] > 0:
+        if win > 0:
             hits += 1
-        paid += r["total_win"]
-        bankroll += r["total_win"] - stake
+        paid += win
+        bankroll += win - stake
         path.append(round(bankroll, 4))
 
     return {
@@ -504,7 +419,6 @@ def video_simulate(
         },
         "hit_rate": round(hits / n_spins, 6),
         "fs_trigger_rate": round(triggers / n_spins, 6),
-        "respin_rate": round(respin_events / n_spins, 6),
         "final_bankroll": round(bankroll, 4),
         "bankroll_path": path[:: max(1, n_spins // 1000)],
     }
@@ -534,9 +448,6 @@ def theme_from_config(cfg: dict) -> VideoTheme:
         scatter_pays={int(k): float(v) for k, v in cfg["scatter_pays"].items()},
         free_spins={int(k): int(v) for k, v in cfg["free_spins"].items()},
         fs_multiplier=float(cfg.get("fs_multiplier", 2.0)),
-        expanding_wilds=bool(cfg.get("expanding_wilds", False)),
-        expanding_reels=tuple(int(r) for r in cfg.get("expanding_reels", ())),
-        max_respins=int(cfg.get("max_respins", 3)),
     )
 
 
@@ -559,47 +470,9 @@ for _name, _syms in _CLASSIC_VIDEO_SPECS:
     VIDEO_THEMES[_t.name] = _t
 
 
-def star_nova_config() -> dict:
-    """Starburst-inspired low-volatility theme: STAR wild on reels 2-5 only,
-    expands to a full wild reel, locks, and grants up to 3 chained respins."""
-    gems = {"PURPLE": 9, "BLUE": 8, "GREEN": 7, "ORANGE": 6, "YELLOW": 5,
-            "SEVEN": 3, "BAR": 2, "SCATTER": 1}
-    reel_counts = []
-    for i in range(REELS):
-        c = dict(gems)
-        if i in (1, 2, 3, 4):  # STAR wild only on reels 2-5 (0-based 1..4)
-            c["STAR"] = 1
-        reel_counts.append(c)
-    return {
-        "name": "Star Nova 4096",
-        "wild": "STAR",
-        "scatter": "SCATTER",
-        "fs_multiplier": 2.0,
-        "expanding_wilds": True,
-        "expanding_reels": (1, 2, 3, 4),
-        "max_respins": 3,
-        "reel_counts": reel_counts,
-        "pay_table": {
-            "BAR":    {3: 250, 4: 800, 5: 2000, 6: 5000},
-            "SEVEN":  {3: 120, 4: 400, 5: 1000, 6: 2500},
-            "YELLOW": {3: 60, 4: 150, 5: 400, 6: 1000},
-            "GREEN":  {3: 50, 4: 120, 5: 300, 6: 800},
-            "ORANGE": {3: 40, 4: 100, 5: 250, 6: 600},
-            "BLUE":   {3: 25, 4: 60, 5: 150, 6: 400},
-            "PURPLE": {3: 25, 4: 60, 5: 150, 6: 400},
-        },
-        "scatter_pays": {3: 1.0, 4: 5.0, 5: 20.0, 6: 100.0},
-        "free_spins": {3: 8, 4: 12, 5: 15, 6: 20},
-    }
-
-
-_STAR_NOVA = theme_from_config(star_nova_config())
-VIDEO_THEMES[_STAR_NOVA.name] = _STAR_NOVA
-
-
 def all_video_configs() -> list[dict]:
     """Plain configs for every code-defined theme (for DB seeding)."""
-    configs = [deep_sea_config(), star_nova_config()]
+    configs = [deep_sea_config()]
     for name, syms in _CLASSIC_VIDEO_SPECS:
         t = VIDEO_THEMES[name]
         base = {sym: c for sym, c, _ in syms}

@@ -163,60 +163,15 @@ class TestThemeFromConfig(unittest.TestCase):
 
 class TestClassicVideoThemes(unittest.TestCase):
     def test_four_themes_exist_and_hit_targets(self):
-        from spin_lab.engine.video_slot import (VIDEO_THEMES, base_total_rtp,
-                                                 video_profile_scale)
-        self.assertEqual(len(VIDEO_THEMES), 5)
+        from spin_lab.engine.video_slot import VIDEO_THEMES, video_profile_scale
+        self.assertEqual(len(VIDEO_THEMES), 4)
         for name, t in VIDEO_THEMES.items():
-            base = base_total_rtp(t)  # exact, or MC-calibrated for expanding themes
+            r = analytic_rtp(t)
             for profile, target in SCORING_PROFILES.items():
                 self.assertAlmostEqual(
-                    base * video_profile_scale(t, profile), target, places=9,
+                    r["total_rtp"] * video_profile_scale(t, profile), target, places=9,
                     msg=f"{name}/{profile}")
 
     def test_classic_video_simulation_converges(self):
         res = video_simulate("Lucky Sevens 4096", 100_000, "fair", seed=3)
         self.assertAlmostEqual(res["empirical_rtp"], 1.0, delta=0.25)  # very high volatility
-
-
-class TestExpandingWilds(unittest.TestCase):
-    def _nova(self):
-        from spin_lab.engine.video_slot import VIDEO_THEMES
-        return VIDEO_THEMES["Star Nova 4096"]
-
-    def test_expansion_covers_reel_and_locks(self):
-        from spin_lab.engine.video_slot import apply_expanding_wilds
-        t = self._nova()
-        grid = [["PURPLE"] * 4 for _ in range(6)]
-        grid[2][1] = "STAR"          # wild on eligible reel 3 (idx 2)
-        grid[0][0] = "STAR"          # reel 1 is NOT eligible
-        newly = apply_expanding_wilds(t, grid, set())
-        self.assertEqual(newly, {2})
-        self.assertEqual(grid[2], ["STAR"] * 4)       # full wild reel
-        self.assertNotEqual(grid[0], ["STAR"] * 4)    # reel 1 untouched
-
-    def test_no_expansion_when_disabled(self):
-        from spin_lab.engine.video_slot import apply_expanding_wilds
-        grid = [["TEN"] * 4 for _ in range(6)]
-        grid[2][0] = "WILD"
-        self.assertEqual(apply_expanding_wilds(DEEP_SEA, grid, set()), set())
-
-    def test_respin_chain_bounded(self):
-        from spin_lab.engine.video_slot import video_spin as vspin
-        t = self._nova()
-        rng = make_rng(2024)
-        for _ in range(300):
-            res = vspin(t, 1.0, "fair", rng=rng)
-            self.assertLessEqual(res["respins_used"], t.max_respins)
-            self.assertLessEqual(len(res["locked_reels"]), len(t.expanding_reels))
-            # locked reels in the final grid must be fully wild
-            for r in res["locked_reels"]:
-                self.assertEqual(res["grid"][r], [t.wild] * 4)
-
-    def test_mc_calibrated_profile_hits_target(self):
-        res = video_simulate("Star Nova 4096", 60_000, "fair", seed=4242)
-        self.assertAlmostEqual(res["empirical_rtp"], 1.0, delta=0.08)
-        self.assertGreater(res["respin_rate"], 0.2)   # signature feature fires often
-
-    def test_plain_themes_unaffected(self):
-        res = video_simulate(DEEP_SEA, 30_000, "fair", seed=7)
-        self.assertEqual(res["respin_rate"], 0)
