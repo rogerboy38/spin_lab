@@ -73,6 +73,13 @@
     text-shadow:0 0 30px rgba(255,200,60,.5);animation:bp 1s ease-in-out infinite}
   @keyframes bp{50%{transform:scale(1.07)}}
   #bigwin .ba{font-size:clamp(1.8rem,6vw,3rem);font-weight:800;color:#fff;text-shadow:0 0 18px rgba(255,215,0,.8)}
+  .flash{animation:frameflash .5s ease-out}
+  @keyframes frameflash{0%{box-shadow:0 0 60px rgba(255,216,107,.9),inset 0 0 40px rgba(255,216,107,.5)}100%{box-shadow:0 0 30px rgba(255,216,107,.3),inset 0 0 22px rgba(255,216,107,.12)}}
+  #lot-float{position:absolute;left:50%;transform:translateX(-50%);font-size:2.2rem;font-weight:900;color:#ffe06b;
+    text-shadow:0 0 20px rgba(255,200,60,.8);pointer-events:none;opacity:0}
+  .floatup{animation:floatup 1.1s ease-out}
+  @keyframes floatup{0%{opacity:0;top:60%}15%{opacity:1}100%{opacity:0;top:18%}}
+  #lot-ldw{display:none;color:#ff8a8a;font-size:.82rem;margin-top:.3rem}
 </style>
 {% endblock %}
 {% block page_content %}
@@ -136,7 +143,8 @@
     <div class="stage">
       <h2>&#127948; La Loter&iacute;a del Enganche</h2>
       <div id="lot-cantor" class="gold" style="min-height:1.4rem;font-weight:700;margin-bottom:.5rem">El cantor espera&hellip;</div>
-      <div class="frame"><canvas id="lot-cv" width="520" height="520"></canvas></div>
+      <div style="position:relative;display:inline-block"><div class="frame" id="lot-frame"><canvas id="lot-cv" width="520" height="520"></canvas></div><div id="lot-float"></div></div>
+      <div id="lot-ldw"></div>
       <div class="ctl">
         <select id="lot-rtp">
           <option value="1.30">RTP 130% &middot; launch bait</option>
@@ -148,6 +156,7 @@
         <button class="spinbtn" id="lot-call">&iexcl;LLAMAR!</button>
         <button class="cz-btn" id="lot-100">Auto &times;100</button>
         <button class="cz-btn" id="lot-1000">Auto &times;1000</button>
+        <button class="cz-btn" id="lot-honest">&#128269; Honest: off</button>
         <button class="cz-btn" id="lot-reset">&#8634;</button>
       </div>
       <div id="lot-stat" style="color:#9a96bf;font-size:.85rem"></div>
@@ -275,14 +284,25 @@
           for(var r=0;r<6;r++){ var st=380+r*150; if(t<st){done=false;g.push(Array.from({length:res.grid[r].length},function(){return pool[Math.floor(Math.random()*pool.length)];}));} else g.push(res.grid[r]); }
           drawSlots(g,new Set()); done?finish():requestAnimationFrame(anim); })(start); } }); }
 
-  var lotCards=[],lotTiers=[],lotScale=1,lotBase=1,lotInit=false,lotBal=100,lotDraws=0,lotWins=0,lotRunning=false;
+  var lotCards=[],lotTiers=[],lotScale=1,lotBase=1,lotInit=false,lotBal=100,lotDraws=0,lotWins=0,lotLdw=0,lotRunning=false,lotHonest=false;
+  var lotLast={marked:[],tier:null}, lotCoins=[];
   function initLot(){ if(lotInit)return; lotInit=true;
     call("loteria_config").then(function(cfg){ if(!cfg)return; lotCards=cfg.cards;lotTiers=cfg.tiers;lotBase=cfg.base_rtp_unscaled;
       setLotRtp(+$("lot-rtp").value); drawLot([],null); });
     $("lot-rtp").onchange=function(e){lotRunning=false;setLotRtp(+e.target.value);};
     $("lot-call").onclick=function(){lotDraw();};
     $("lot-100").onclick=function(){lotAutoRun(100);}; $("lot-1000").onclick=function(){lotAutoRun(1000);};
-    $("lot-reset").onclick=function(){lotRunning=false;lotBal=100;lotDraws=0;lotWins=0;$("lot-stat").textContent="";$("lot-cantor").textContent="El cantor espera…";drawLot([],null);}; }
+    $("lot-honest").onclick=function(){ lotHonest=!lotHonest; $("lot-honest").innerHTML=(lotHonest?"🔍 Honest: ON":"🔍 Honest: off");
+      $("lot-honest").style.borderColor=lotHonest?"#37e0a0":""; $("lot-ldw").style.display=lotHonest?"block":"none"; updateLdw(); };
+    $("lot-reset").onclick=function(){lotRunning=false;lotBal=100;lotDraws=0;lotWins=0;lotLdw=0;$("lot-stat").textContent="";$("lot-cantor").textContent="El cantor espera…";updateLdw();drawLot([],null);}; }
+  function updateLdw(){ var pct=lotWins?Math.round(100*lotLdw/lotWins):0;
+    $("lot-ldw").innerHTML="📉 Losses disguised as wins: <b>"+lotLdw+"</b> of "+lotWins+" \"wins\" ("+pct+"%) paid back ≤ your bet"; }
+  function classify(win){ if(win>1.0001)return["WIN","#37e0a0"]; if(win>0.0001)return[Math.abs(win-1)<0.01?"PUSH":"LDW",Math.abs(win-1)<0.01?"#ffd86b":"#ff6b6b"]; return["LOSS","#9a96bf"]; }
+  function lotFloat(txt){ var f=$("lot-float"); f.textContent=txt; f.classList.remove("floatup"); void f.offsetWidth; f.classList.add("floatup"); }
+  function lotCoinBurst(n){ for(var i=0;i<n;i++){var a=Math.random()*6.28,v=2+Math.random()*5;lotCoins.push({x:260,y:250,vx:Math.cos(a)*v,vy:Math.sin(a)*v-3.5,life:46+Math.random()*22});}
+    (function frame(){ drawLot(lotLast.marked,lotLast.tier); var c=$("lot-cv").getContext("2d");
+      lotCoins.forEach(function(p){p.x+=p.vx;p.y+=p.vy;p.vy+=0.28;p.life--;c.globalAlpha=Math.max(0,Math.min(1,p.life/22));c.font="22px system-ui";c.textAlign="center";c.fillText("🪙",p.x,p.y);c.globalAlpha=1;});
+      lotCoins=lotCoins.filter(function(p){return p.life>0;}); if(lotCoins.length)requestAnimationFrame(frame); })(); }
   function setLotRtp(v){ lotScale=v/lotBase; var up=v>=1;
     $("lot-cantor").innerHTML=up?"RTP "+Math.round(v*100)+"% — keep feasting on your "+lotBal.toFixed(2)+".":"RTP "+Math.round(v*100)+"% — same cards. Now watch your "+lotBal.toFixed(2)+" bleed away.";
     $("lot-cantor").className=up?"green":"red"; }
@@ -300,14 +320,28 @@
     for(var k=0;k<n;k++)mk.push(idx.splice(Math.random()*idx.length|0,1)[0]);
     var roll=Math.random(),cum=0,win=0,tier=null; for(var ti=0;ti<lotTiers.length;ti++){var t=lotTiers[ti];cum+=t.p;if(roll<cum){win=t.pay*lotScale;tier=t.label;break;}}
     return{marked:mk.sort(function(a,b){return a-b;}),tier:tier,win:win}; }
-  function lotApply(r){ lotBal+=r.win-1;lotDraws++; if(r.win>0)lotWins++;
-    credits+=r.win-1; setCredits();
-    $("lot-cantor").innerHTML=r.tier?"¡"+r.tier+"! +"+r.win.toFixed(2)+" 🎉":"Se fue limpia…"; $("lot-cantor").className=r.win>=1?"green":"";
+  function lotApply(r,quiet){ var net=r.win-1; lotBal+=net;lotDraws++; if(r.win>0)lotWins++;
+    if(r.win>0.0001&&r.win<0.9999)lotLdw++;
+    credits+=net; setCredits();
+    var k=classify(r.win);
+    if(lotHonest){
+      $("lot-cantor").innerHTML = r.win>0 ? "¡"+r.tier+"! +"+r.win.toFixed(2)+" &rarr; net "+(net>=0?"+":"")+net.toFixed(2)+" · "+k[0]
+                                          : "Se fue limpia… &minus;1.00 · LOSS";
+      $("lot-cantor").style.color=k[1]; $("lot-cantor").className="";
+      updateLdw();
+    } else {
+      // the illusion: every win, even a push or LDW, gets a green party
+      $("lot-cantor").innerHTML = r.tier ? "¡"+r.tier+"! +"+r.win.toFixed(2)+" 🎉" : "Se fue limpia…";
+      $("lot-cantor").style.color=""; $("lot-cantor").className=r.win>0?"green":"";
+    }
     $("lot-stat").textContent="balance "+lotBal.toFixed(2)+" · draws "+lotDraws+" · wins "+lotWins; }
-  function lotDraw(){ if(lotRunning)return; var r=lotLocal(); drawLot(r.marked,r.tier); r.win>0?SFX.win(Math.max(1,r.win)):SFX.lose(); lotApply(r); }
+  function lotDraw(){ if(lotRunning)return; var r=lotLocal(); lotLast={marked:r.marked,tier:r.tier}; drawLot(r.marked,r.tier);
+    if(r.win>0){ SFX.win(Math.max(1,r.win)); $("lot-frame").classList.remove("flash"); void $("lot-frame").offsetWidth; $("lot-frame").classList.add("flash");
+      lotFloat("+"+r.win.toFixed(2)); lotCoinBurst(r.win>=4?16:8); } else SFX.lose();
+    lotApply(r); }
   function lotAutoRun(n){ if(lotRunning)return; lotRunning=true;
-    (function loop(i){ if(i>=n||!lotRunning){lotRunning=false;$("lot-cantor").innerHTML=n+" draws · you're "+(lotBal>=100?"UP":"DOWN")+" "+(lotBal-100).toFixed(2);return;}
-      var r=lotLocal();
+    (function loop(i){ if(i>=n||!lotRunning){lotRunning=false;updateLdw();$("lot-cantor").innerHTML=n+" draws · you're "+(lotBal>=100?"UP":"DOWN")+" "+(lotBal-100).toFixed(2);$("lot-cantor").className=lotBal>=100?"green":"red";return;}
+      var r=lotLocal(); lotLast={marked:r.marked,tier:r.tier};
       if(i%10===0||i===n-1){drawLot(r.marked,r.tier);lotApply(r);setTimeout(function(){loop(i+1);},n>200?6:35);}
       else{lotApply(r);loop(i+1);} })(0); }
 
