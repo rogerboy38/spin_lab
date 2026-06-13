@@ -184,3 +184,22 @@ def gamblers_ruin(theme: str = "Classic Fruits", bankroll: float = 50,
     sessions = min(int(sessions), 4000)
     return simulate_ruin(theme, float(bankroll), float(goal), profile,
                          float(stake), sessions)
+
+
+@frappe.whitelist(allow_guest=True)
+def loteria_config():
+    from spin_lab.engine import loteria
+    return loteria.config()
+
+
+@frappe.whitelist(allow_guest=True)
+def loteria_simulate(n: int = 1000, target_rtp: float = 1.20, stake: float = 1.0):
+    from spin_lab.engine import loteria
+    return loteria.simulate(min(int(n), 200000), float(stake), float(target_rtp))
+
+
+@frappe.whitelist(allow_guest=True)
+def loteria_jackpot_odds():
+    """Real progressive-meter odds, to show jackpots ≈ never over a session."""
+    from spin_lab.api.progressive import meter_analysis
+    return meter_analysis()

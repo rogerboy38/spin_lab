@@ -345,3 +345,21 @@ class TestProfilesEditable(unittest.TestCase):
         from spin_lab.engine.themes import SCORING_PROFILES
         for k in ("nevada_min", "loose_85", "tight_90", "casino_edge", "fair", "player_edge"):
             self.assertIn(k, SCORING_PROFILES)
+
+
+class TestLoteria(unittest.TestCase):
+    def test_rtp_converges_to_target(self):
+        from spin_lab.engine.loteria import simulate
+        for target in (1.20, 1.10, 0.95):
+            r = simulate(120_000, target_rtp=target, seed=5)
+            self.assertAlmostEqual(r["empirical_rtp"], target, delta=0.03)
+
+    def test_free_food_is_net_positive_at_120(self):
+        from spin_lab.engine.loteria import simulate
+        r = simulate(50_000, target_rtp=1.20, seed=9)
+        self.assertGreater(r["final_net"], 0)   # the bait: player ends UP in this stage
+
+    def test_config_has_16_cards(self):
+        from spin_lab.engine.loteria import config
+        self.assertEqual(len(config()["cards"]), 16)
+        self.assertEqual(len(config()["tiers"]), 4)
