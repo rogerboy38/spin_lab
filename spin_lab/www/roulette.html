@@ -93,6 +93,31 @@
 </div>
 
 
+<div id="dlg-dealer" style="display:none;position:fixed;inset:0;z-index:999;background:rgba(4,6,18,.72);backdrop-filter:blur(3px)">
+  <div style="max-width:680px;margin:5vh auto;background:#15152e;border:1px solid #34335e;border-radius:14px;padding:18px 20px;color:#f3f0ff;box-shadow:0 20px 60px rgba(0,0,0,.6)">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <h2 style="margin:0;background:linear-gradient(90deg,#ffd86b,#ff3d81);-webkit-background-clip:text;background-clip:text;color:transparent">&#128081; Dealer Panel</h2>
+      <button class="rz-btn" id="dlg-close">&#10005; close</button>
+    </div>
+    <div style="background:#0e0e22;border:1px solid #2a2a4d;border-radius:10px;padding:10px 12px;margin-bottom:12px">
+      <div style="font-weight:700;margin-bottom:6px;color:#cfeede">Create player</div>
+      <input id="d-email" placeholder="email (login id)" style="width:190px">
+      <input id="d-name" placeholder="name" style="width:120px">
+      <input id="d-pass" placeholder="password" style="width:110px">
+      <input id="d-start" type="number" value="1000" title="starting chips" style="width:80px">
+      <button class="rz-btn" id="d-create">Create</button>
+      <span id="d-msg" style="font-size:.8rem;color:#37e0a0;margin-left:8px"></span>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+      <div style="font-weight:700;color:#cfeede">Accounts &amp; balances</div>
+      <button class="rz-btn" id="d-refresh">&#8635; refresh</button>
+    </div>
+    <table id="d-table" style="width:100%;border-collapse:collapse;font-size:.86rem">
+      <thead><tr style="text-align:left;color:#9a96c4"><th style="padding:4px 6px">player</th><th>user</th><th>balance</th><th>+ credit</th><th>set</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+</div>
 <script>
 (function(){
   var $=function(id){return document.getElementById(id);};
@@ -116,12 +141,32 @@
 
   function call(m,a){return new Promise(function(r){frappe.call({method:"spin_lab.api.roulette."+m,args:a||{},callback:function(x){r(x.message);},error:function(){r(null);}});});}
   function acc(m,a){return new Promise(function(r){frappe.call({method:"spin_lab.api.casino_accounts."+m,args:a||{},callback:function(x){r(x.message);},error:function(){r(null);}});});}
+  function dlgLoad(){ acc("list_accounts").then(function(rows){ var tb=document.querySelector("#d-table tbody"); if(!tb)return;
+    tb.innerHTML=(rows||[]).map(function(a){var id=btoa(a.user);
+      return "<tr style='border-top:1px solid #2a2a4d'><td style='padding:5px 6px;color:"+(a.color||"#fff")+"'>"+(a.player_name||"")+"</td><td>"+a.user+"</td>"+
+        "<td style='font-weight:700'>"+(a.balance||0).toFixed(2)+"</td>"+
+        "<td><input type='number' value='100' style='width:64px' id='cr-"+id+"'> <button class='rz-btn d-cr' data-u='"+a.user+"'>+</button></td>"+
+        "<td><input type='number' value='1000' style='width:70px' id='st-"+id+"'> <button class='rz-btn d-st' data-u='"+a.user+"'>set</button></td></tr>";
+    }).join("");
+    document.querySelectorAll(".d-cr").forEach(function(b){b.onclick=function(){var u=b.dataset.u;acc("admin_credit",{user:u,amount:$("cr-"+btoa(u)).value}).then(function(){dlgLoad();afterDealer(u);});};});
+    document.querySelectorAll(".d-st").forEach(function(b){b.onclick=function(){var u=b.dataset.u;acc("admin_set_balance",{user:u,amount:$("st-"+btoa(u)).value}).then(function(){dlgLoad();afterDealer(u);});};});
+  }); }
+  function afterDealer(u){ if(u===me){ acc("whoami").then(function(w){ if(w&&w.balance!=null){bal=w.balance;setBal();} }); } }
+  function openDealer(){ $("dlg-dealer").style.display="block"; dlgLoad(); }
+  function closeDealer(){ $("dlg-dealer").style.display="none"; }
+  $("dlg-close").onclick=closeDealer;
+  $("dlg-dealer").addEventListener("click",function(e){ if(e.target===$("dlg-dealer"))closeDealer(); });
+  $("d-refresh").onclick=dlgLoad;
+  $("d-create").onclick=function(){ var email=$("d-email").value.trim(); if(!email){$("d-msg").textContent="email required";return;}
+    acc("admin_create_player",{email:email,first_name:$("d-name").value.trim()||email.split("@")[0],password:$("d-pass").value||"changeme123",start:$("d-start").value||1000}).then(function(r){
+      $("d-msg").textContent=r?("created "+email):"failed (maybe exists)"; $("d-email").value="";$("d-name").value="";$("d-pass").value=""; dlgLoad(); }); };
   var serverWallet=false;
   function walletDelta(d,cb){ if(serverWallet){ acc("adjust",{delta:d}).then(function(r){ if(r){bal=r.balance;setBal();} if(cb)cb(); }); } else { bal+=d; setBal(); if(cb)cb(); } }
   function syncBal(r,guestDelta){ if(r&&r.balance!=null){ bal=r.balance; setBal(); } else { bal+=guestDelta; setBal(); } }
   function initAccount(){ acc("whoami").then(function(w){ if(w&&!w.guest){ serverWallet=true; me=w.name; myColor=w.color||myColor;
       if(w.balance!=null){bal=w.balance;setBal();} $("rz-name").textContent=me; $("rz-name").style.color=myColor; $("rl-rename").style.display="none"; $("rl-setname").style.display="none";
-      $("rz-login").innerHTML = w.is_admin ? '<a class="rz-btn" href="/casino-admin" style="border-color:#ffd86b;color:#ffd86b">&#128081; Dealer</a>' : '<span style="color:#37e0a0;font-size:.8rem">&#9679; account</span>';
+      $("rz-login").innerHTML = w.is_admin ? '<button class="rz-btn" id="rz-dealer" style="border-color:#ffd86b;color:#ffd86b">&#128081; Dealer</button>' : '<span style="color:#37e0a0;font-size:.8rem">&#9679; account</span>';
+      if(w.is_admin){ $("rz-dealer").onclick=openDealer; }
     } else { $("rz-login").innerHTML='<a class="rz-btn" href="/login?redirect-to=/roulette">Log in</a>'; } }); }
   function whenFrappe(fn){(window.frappe&&frappe.call&&(frappe.csrf_token||document.readyState==="complete"))?fn():setTimeout(function(){whenFrappe(fn);},120);}
   var actx=null;function tone(f,d,w,t,g,ef){w=w||0;t=t||"square";g=g||0.05;try{if(!actx)actx=new(window.AudioContext||window.webkitAudioContext)();if(actx.state==="suspended")actx.resume();var t0=actx.currentTime+w,o=actx.createOscillator(),gn=actx.createGain();o.type=t;o.frequency.setValueAtTime(f,t0);if(ef)o.frequency.exponentialRampToValueAtTime(ef,t0+d);gn.gain.setValueAtTime(g,t0);gn.gain.exponentialRampToValueAtTime(0.0001,t0+d);o.connect(gn);gn.connect(actx.destination);o.start(t0);o.stop(t0+d+0.05);}catch(e){}}
