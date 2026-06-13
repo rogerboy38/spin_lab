@@ -413,3 +413,37 @@ class TestRoulette(unittest.TestCase):
         r = settle([{"kind": "red", "amount": 1}, {"kind": "straight", "target": "00", "amount": 1}], DOUBLE_ZERO)
         self.assertEqual(r[0]["won"], 0)
         self.assertEqual(r[1]["won"], 36)
+
+
+class TestRouletteInside(unittest.TestCase):
+    def test_inside_payouts_and_coverage(self):
+        from spin_lab.engine.roulette import settle
+        # split 17/20 (18x), corner 1/2/4/5 (9x), street 1/2/3 (12x)
+        bets = [{"kind": "inside", "target": [17, 20], "amount": 1},
+                {"kind": "inside", "target": [1, 2, 4, 5], "amount": 1},
+                {"kind": "inside", "target": [1, 2, 3], "amount": 1}]
+        r = settle(bets, 20)   # 20 hits the split and is in neither corner/street here
+        self.assertEqual(r[0]["won"], 18)
+        self.assertEqual(r[1]["won"], 0)
+        self.assertEqual(r[2]["won"], 0)
+        r2 = settle(bets, 2)   # 2 is in the corner and the street, not the split
+        self.assertEqual(r2[0]["won"], 0)
+        self.assertEqual(r2[1]["won"], 9)
+        self.assertEqual(r2[2]["won"], 12)
+
+    def test_american_basket_is_the_worst_bet(self):
+        from spin_lab.engine.roulette import settle, DOUBLE_ZERO
+        # top line 0,00,1,2,3 pays 7x; covers 5/38 -> RTP 35/38 = 92.1% (edge 7.89%)
+        b = [{"kind": "inside", "target": [0, "00", 1, 2, 3], "amount": 1}]
+        self.assertEqual(settle(b, DOUBLE_ZERO)[0]["won"], 7)
+        self.assertEqual(settle(b, 3)[0]["won"], 7)
+        self.assertEqual(settle(b, 4)[0]["won"], 0)
+
+    def test_inside_keeps_house_edge(self):
+        from spin_lab.engine.roulette import spin, settle
+        from spin_lab.engine.rng import make_rng
+        rng = make_rng(3); staked = paid = 0.0
+        for _ in range(150_000):
+            n = spin("european", rng); staked += 1
+            paid += settle([{"kind": "inside", "target": [1, 2, 4, 5], "amount": 1}], n)[0]["won"]
+        self.assertAlmostEqual(paid / staked, 36/37, delta=0.02)

@@ -49,7 +49,13 @@ def roulette_bet(player, color, kind, amount, target=None):
     amount = float(amount)
     if amount <= 0 or amount > 100000:
         frappe.throw("Bad amount")
-    if kind not in rl.PAYOUT:
+    if kind == "inside":
+        if isinstance(target, str):
+            target = json.loads(target)
+        if not isinstance(target, list) or not (1 <= len(target) <= 6):
+            frappe.throw("Bad inside group")
+        target = [(37 if str(t) in ("00", "37") else int(t)) for t in target]
+    elif kind not in rl.PAYOUT:
         frappe.throw("Bad bet kind")
     s = _state()
     bets = _load(s, "live_bets", [])

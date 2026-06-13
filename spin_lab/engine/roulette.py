@@ -53,7 +53,7 @@ def _norm_target(target):
 
 def _wins(kind: str, target, n: int) -> bool:
     green = n == 0 or n == DOUBLE_ZERO
-    if green and kind != "straight":
+    if green and kind not in ("straight", "inside"):
         return False
     if kind == "straight":
         return n == _norm_target(target)
@@ -75,18 +75,27 @@ def _wins(kind: str, target, n: int) -> bool:
     if kind == "column":
         c = int(target)
         return not green and n % 3 == (c % 3)
+    if kind == "inside":
+        return n in set(_norm_target(t) for t in target)
     raise ValueError(f"unknown bet kind {kind!r}")
 
 
 PAYOUT = {"straight": 36, "red": 2, "black": 2, "odd": 2, "even": 2,
           "low": 2, "high": 2, "dozen": 3, "column": 3}
+# inside bet: total return by group size (split=2 ->18x, street=3 ->12x,
+# corner=4 ->9x, basket=5 ->7x [the worst bet], six-line=6 ->6x)
+GROUP_PAYOUT = {1: 36, 2: 18, 3: 12, 4: 9, 5: 7, 6: 6}
 
 
 def settle(bets: list[dict], n: int) -> list[dict]:
     out = []
     for b in bets:
         win = _wins(b["kind"], b.get("target"), n)
-        ret = b["amount"] * PAYOUT[b["kind"]] if win else 0.0
+        if b["kind"] == "inside":
+            mult = GROUP_PAYOUT.get(len(b["target"]), 0)
+        else:
+            mult = PAYOUT[b["kind"]]
+        ret = b["amount"] * mult if win else 0.0
         out.append({**b, "win": win, "won": round(ret, 4),
                     "net": round(ret - b["amount"], 4)})
     return out
